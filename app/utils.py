@@ -5,11 +5,12 @@ from typing import List, Dict, Optional
 import requests
 from app.models import Artist, Settings
 from app import db
-import openai
-from bs4 import BeautifulSoup  # We'll use this for HTML parsing
-from firecrawl import FirecrawlApp  # Update import
+import google.generativeai as genai
+from google.generativeai import types
+from pydantic import BaseModel
+from firecrawl import FirecrawlApp
 import os
-import pytz  # Add timezone support
+import pytz
 
 # Configure logging
 logging.basicConfig(
@@ -67,8 +68,11 @@ class TelegramNotifier:
 class TourScraper:
     def __init__(self):
         self.settings = Settings.get_settings()
-        self.openai_api_key = os.getenv('OPENAI_API_KEY')  # Use environment variable directly
-        self.openai_client = openai.OpenAI(api_key=self.openai_api_key)
+        self.gemini_api_key = os.getenv('GEMINI_API_KEY')
+        # Configure Gemini
+        genai.configure(api_key=self.gemini_api_key)
+        # Initialize the model
+        self.model = genai.GenerativeModel('gemini-2.0-flash-lite')
         self.firecrawl = FirecrawlApp(api_key=os.getenv('FIRECRAWL_API_KEY'))
 
     def scrape_url(self, url: str) -> Optional[Dict]:
@@ -91,46 +95,62 @@ class TourScraper:
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         try:
-            response = self.openai_client.chat.completions.create(
-                model="gpt-4o-mini-2024-07-18",  # Updated model name
-                messages=[
-                    {"role": "system", "content": """You are a tour date extraction assistant. You must ALWAYS respond with a valid JSON array, even if empty.
-                    If no dates are found, return []. Never include any explanatory text, only the JSON array."""},
-                    {"role": "user", "content": f"""
-                    Extract tour dates from this content for {artist.name} in these cities: {artist.cities}
-                    
-                    Content:
-                    {scraped_data['content']}
-                    
-                    Respond ONLY with a JSON array of objects in this exact format:
-                    [
-                        {{
-                            "city": "City name",
-                            "venue": "Venue name",
-                            "date": "YYYY-MM-DD",
-                            "ticket_url": "URL to tickets"
-                        }}
-                    ]
-                    
-                    Only include dates in the specified cities. If no dates are found, respond with [].
-                    Do not include any other text in your response, only the JSON array.
-                    """}
-                ],
-                temperature=0  # Use 0 temperature for more consistent formatting
+            prompt = f"""Extract tour dates from this content for {artist.name} in these cities: {artist.cities}
+            
+Content:
+{scraped_data['content']}
+
+Return ONLY a JSON array containing tour dates in this exact format, with no markdown formatting or other text:
+[
+    {{
+        "city": "City name",
+        "venue": "Venue name",
+        "date": "YYYY-MM-DD",
+        "ticket_url": "URL to tickets"
+    }}
+]
+
+Only include dates in the specified cities. If no dates are found, return an empty array []."""
+
+            # Make the API call with structured output configuration
+            response = self.model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0,  # Use 0 for maximum accuracy
+                    top_p=0.95,
+                    top_k=40,
+                    max_output_tokens=8192,
+                ),
+                stream=False
             )
             
             # Log the raw response for debugging
-            logger.info(f"Raw LLM Response: {response.choices[0].message.content}")
+            logger.info(f"Raw LLM Response: {response.text}")
             
             try:
-                tour_dates = json.loads(response.choices[0].message.content)
+                # Clean the response text by removing markdown code blocks
+                cleaned_text = response.text
+                if cleaned_text.startswith('```'):
+                    # Remove opening markdown
+                    cleaned_text = cleaned_text.split('\n', 1)[1]
+                if cleaned_text.endswith('```'):
+                    # Remove closing markdown
+                    cleaned_text = cleaned_text.rsplit('\n', 1)[0]
+                # Remove any "json" or other language specifier
+                cleaned_text = cleaned_text.replace('json\n', '')
+                
+                # Parse the cleaned JSON
+                tour_dates = json.loads(cleaned_text)
                 if not isinstance(tour_dates, list):
                     logger.error("LLM response is not a list")
                     return []
+                
+                # Log successful parsing
+                logger.info(f"Successfully parsed {len(tour_dates)} tour dates")
                 return tour_dates
-            except json.JSONDecodeError as e:
-                logger.error(f"Failed to parse LLM response as JSON: {e}")
-                logger.error(f"Raw content that failed to parse: {response.choices[0].message.content}")
+            except Exception as e:
+                logger.error(f"Failed to parse LLM response: {e}")
+                logger.error(f"Raw content that failed to parse: {response.text}")
                 return []
                 
         except Exception as e:
@@ -139,7 +159,7 @@ class TourScraper:
 
     def check_artist(self, artist: Artist) -> List[Dict]:
         logger.info(f"Starting check for artist: {artist.name}")
-        logger.info(f"Using OpenAI API key: {'Set' if self.openai_api_key else 'Not Set'}")
+        logger.info(f"Using Gemini API key: {'Set' if self.gemini_api_key else 'Not Set'}")
         
         if artist.on_hold:
             logger.info(f"Skipping {artist.name} - on hold")
