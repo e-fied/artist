@@ -1,6 +1,7 @@
 from flask import render_template, request, redirect, url_for, flash
 from app import app, db
 from app.models import Artist, Settings
+from app.utils import check_all_artists, TourScraper
 from datetime import datetime
 
 @app.route('/')
@@ -48,3 +49,20 @@ def settings():
         flash('Settings updated successfully!', 'success')
         return redirect(url_for('settings'))
     return render_template('settings.html', settings=settings)
+
+@app.route('/check_artist/<int:id>')
+def check_artist(id):
+    try:
+        artist = Artist.query.get_or_404(id)
+        scraper = TourScraper()
+        tour_dates = scraper.check_artist(artist)
+        
+        if tour_dates:
+            flash(f'Found {len(tour_dates)} tour dates for {artist.name}!', 'success')
+        else:
+            flash(f'No tour dates found for {artist.name} in the specified cities.', 'info')
+            
+    except Exception as e:
+        flash(f'Error checking tour dates: {str(e)}', 'error')
+    
+    return redirect(url_for('index'))

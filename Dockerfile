@@ -20,10 +20,11 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 
 # Set environment variables
 ENV FLASK_APP=main.py
-ENV FLASK_ENV=production
+ENV FLASK_ENV=development
+ENV FLASK_DEBUG=1
 
 # Expose port
 EXPOSE 5000
 
-# Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "main:app"]
+# Run the application using Flask development server
+CMD ["python", "main.py"]

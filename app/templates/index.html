@@ -42,7 +42,10 @@
                             </td>
                             <td>{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</td>
                             <td>
-                                <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                                    <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-success">Check Now</a>
+                                </div>
                             </td>
                         </tr>
                         {% endfor %}

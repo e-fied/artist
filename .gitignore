@@ -191,3 +191,120 @@ __pycache__/
 
 # Database
 *.db
+
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE - VSCode
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.history/
+
+# IDE - JetBrains (IntelliJ, PyCharm, etc)
+.idea/
+*.iml
+*.iws
+*.ipr
+.idea_modules/
+out/
+
+# IDE - Eclipse
+.classpath
+.project
+.settings/
+
+# Dependencies
+node_modules/
+bower_components/
+jspm_packages/
+vendor/
+.pnp/
+.pnp.js
+composer.phar
+package-lock.json
+yarn.lock
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build directories and files
+dist/
+build/
+out/
+.next/
+.nuxt/
+.cache/
+public/dist/
+*.log
+*.pid
+*.seed
+*.pid.lock
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+.venv/
+pythonenv*
+.coverage
+.coverage.*
+.pytest_cache/
+.tox/
+htmlcov/
+
+# Ruby
+/.bundle/
+/vendor/bundle/
+/lib/bundler/man/
+
+# Java
+*.class
+*.war
+*.ear
+*.jar
+target/
+.gradle
+build/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# Coverage directory
+coverage/
+
+# Miscellaneous
+.tmp/
+.temp/
+*.swp
+*.swo
+

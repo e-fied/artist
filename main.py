@@ -17,16 +17,17 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def schedule_checks():
-    settings = Settings.get_settings()
-    times = [t.strip() for t in settings.check_frequency.split(',')]
-    
-    # Clear existing schedule
-    schedule.clear()
-    
-    # Schedule checks for each time
-    for check_time in times:
-        schedule.every().day.at(check_time).do(check_all_artists)
-        logger.info(f"Scheduled check for {check_time}")
+    with app.app_context():
+        settings = Settings.get_settings()
+        times = [t.strip() for t in settings.check_frequency.split(',')]
+        
+        # Clear existing schedule
+        schedule.clear()
+        
+        # Schedule checks for each time
+        for check_time in times:
+            schedule.every().day.at(check_time).do(check_all_artists)
+            logger.info(f"Scheduled check for {check_time}")
 
 def run_scheduler():
     logger.info("Starting scheduler...")
@@ -34,11 +35,12 @@ def run_scheduler():
     
     while True:
         try:
-            schedule.run_pending()
+            with app.app_context():
+                schedule.run_pending()
             time.sleep(60)
         except Exception as e:
             logger.error(f"Error in scheduler: {str(e)}")
-            time.sleep(60)  # Wait before retrying
+            time.sleep(60)
 
 if __name__ == "__main__":
     # Load environment variables
@@ -54,4 +56,4 @@ if __name__ == "__main__":
     scheduler_thread.start()
     
     # Run the Flask app
-    app.run(host='0.0.0.0', port=5000, debug=False)
+    app.run(host='0.0.0.0', port=5000, debug=True)

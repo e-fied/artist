@@ -6,7 +6,7 @@ import requests
 from app.models import Artist, Settings
 from app import db
 import openai
-from firecrawl import Firecrawl  # Replace with actual Firecrawl import
+from bs4 import BeautifulSoup  # We'll use this for HTML parsing
 
 # Configure logging
 logging.basicConfig(
@@ -44,13 +44,26 @@ class TourScraper:
         self.settings = Settings.get_settings()
         self.openai_api_key = self.settings.openai_api_key
         openai.api_key = self.openai_api_key
-        self.firecrawl = Firecrawl()  # Initialize Firecrawl client
 
     def scrape_url(self, url: str) -> Optional[Dict]:
         try:
-            # Use Firecrawl to scrape the URL
-            result = self.firecrawl.scrape(url, output_format='json')
-            return result
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = requests.get(url, headers=headers, timeout=30)
+            response.raise_for_status()
+            
+            # Parse HTML
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Extract text content
+            text_content = soup.get_text(separator=' ', strip=True)
+            
+            return {
+                "url": url,
+                "content": text_content,
+                "html": response.text
+            }
         except Exception as e:
             logger.error(f"Failed to scrape URL {url}: {str(e)}")
             return None
@@ -98,6 +111,7 @@ class TourScraper:
 
     def check_artist(self, artist: Artist) -> List[Dict]:
         if artist.on_hold:
+            logger.info(f"Skipping {artist.name} - on hold")
             return []
 
         tour_dates = []
@@ -105,10 +119,12 @@ class TourScraper:
         cities = [city.strip() for city in artist.cities.split(',')]
 
         for url in urls:
+            logger.info(f"Checking {url} for {artist.name}")
             scraped_data = self.scrape_url(url)
             if scraped_data:
                 dates = self.process_with_llm(scraped_data, artist)
                 tour_dates.extend(dates)
+                logger.info(f"Found {len(dates)} dates for {artist.name} at {url}")
 
         # Update last_checked timestamp
         artist.last_checked = datetime.utcnow()
