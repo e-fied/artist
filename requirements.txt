@@ -8,3 +8,4 @@ python-dotenv==1.0.1
 firecrawl-py==1.13.5
 gunicorn==21.2.0
 beautifulsoup4==4.12.3
+pytz==2024.1

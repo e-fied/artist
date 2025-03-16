@@ -15,8 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create directory for logs
-RUN mkdir -p /app/logs && chmod 777 /app/logs
+# Create directory for logs and data
+RUN mkdir -p /app/logs /app/data && \
+    chmod 777 /app/logs /app/data
 
 # Set environment variables
 ENV FLASK_APP=main.py
