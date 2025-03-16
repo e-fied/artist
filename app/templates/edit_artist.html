@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="mb-0">Edit Artist</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Artist Name</label>
+                        <input type="text" class="form-control" id="name" name="name" value="{{ artist.name }}" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="urls" class="form-label">URLs (one per line)</label>
+                        <textarea class="form-control" id="urls" name="urls" rows="3" required>{{ artist.urls }}</textarea>
+                        <div class="form-text">Enter one URL per line. These will be scraped for tour dates.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cities" class="form-label">Cities to Track (comma-separated)</label>
+                        <input type="text" class="form-control" id="cities" name="cities" value="{{ artist.cities }}" required>
+                        <div class="form-text">Enter cities separated by commas (e.g., New York, Los Angeles, Chicago)</div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="on_hold" name="on_hold" {% if artist.on_hold %}checked{% endif %}>
+                        <label class="form-check-label" for="on_hold">Put on hold (skip checking)</label>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

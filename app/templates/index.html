@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Artist Tour Tracker</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Artists</h1>
+    <ul>
+        {% for artist in artists %}
+        <li>{{ artist.name }} - {{ artist.cities }}</li>
+        {% endfor %}
+    </ul>
+    <a href="{{ url_for('add_artist') }}">Add Artist</a>
+</body>
+</html>

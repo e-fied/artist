@@ -172,3 +172,22 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# macOS-specific files
+.DS_Store
+._*
+
+# FUSE hidden files
+.fuse_hidden*
+
+# Virtual environment
+venv/
+
+# Python bytecode and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Database
+*.db
