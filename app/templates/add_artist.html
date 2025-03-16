@@ -1,19 +1,43 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Add Artist</title>
-</head>
-<body>
-    <h1>Add New Artist</h1>
-    <form method="POST">
-        <label for="name">Name:</label>
-        <input type="text" id="name" name="name"><br>
-        <label for="urls">URLs (comma-separated):</label>
-        <input type="text" id="urls" name="urls"><br>
-        <label for="cities">Cities (comma-separated):</label>
-        <input type="text" id="cities" name="cities"><br>
-        <input type="submit" value="Add">
-    </form>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h2 class="mb-0">Add New Artist</h2>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Artist Name</label>
+                        <input type="text" class="form-control" id="name" name="name" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="urls" class="form-label">URLs (one per line)</label>
+                        <textarea class="form-control" id="urls" name="urls" rows="3" required></textarea>
+                        <div class="form-text">Enter one URL per line. These will be scraped for tour dates.</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="cities" class="form-label">Cities to Track (comma-separated)</label>
+                        <input type="text" class="form-control" id="cities" name="cities" required>
+                        <div class="form-text">Enter cities separated by commas (e.g., New York, Los Angeles, Chicago)</div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="on_hold" name="on_hold">
+                        <label class="form-check-label" for="on_hold">Put on hold (skip checking)</label>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
+                        <button type="submit" class="btn btn-primary">Add Artist</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

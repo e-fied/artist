@@ -1,17 +1,55 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Artist Tour Tracker</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-</head>
-<body>
-    <h1>Artists</h1>
-    <ul>
-        {% for artist in artists %}
-        <li>{{ artist.name }} - {{ artist.cities }}</li>
-        {% endfor %}
-    </ul>
-    <a href="{{ url_for('add_artist') }}">Add Artist</a>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Artists</h1>
+        <a href="{{ url_for('add_artist') }}" class="btn btn-primary">Add Artist</a>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cities</th>
+                            <th>URLs</th>
+                            <th>Status</th>
+                            <th>Last Checked</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for artist in artists %}
+                        <tr>
+                            <td>{{ artist.name }}</td>
+                            <td>{{ artist.cities }}</td>
+                            <td>
+                                {% for url in artist.urls.split(',') %}
+                                <a href="{{ url.strip() }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;">
+                                    {{ url.strip() }}
+                                </a><br>
+                                {% endfor %}
+                            </td>
+                            <td>
+                                {% if artist.on_hold %}
+                                <span class="badge bg-warning">On Hold</span>
+                                {% else %}
+                                <span class="badge bg-success">Active</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</td>
+                            <td>
+                                <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-primary">Edit</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

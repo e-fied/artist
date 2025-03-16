@@ -5,6 +5,8 @@ from typing import List, Dict, Optional
 import requests
 from app.models import Artist, Settings
 from app import db
+import openai
+from firecrawl import Firecrawl  # Replace with actual Firecrawl import
 
 # Configure logging
 logging.basicConfig(
@@ -41,23 +43,55 @@ class TourScraper:
     def __init__(self):
         self.settings = Settings.get_settings()
         self.openai_api_key = self.settings.openai_api_key
+        openai.api_key = self.openai_api_key
+        self.firecrawl = Firecrawl()  # Initialize Firecrawl client
 
     def scrape_url(self, url: str) -> Optional[Dict]:
         try:
-            # TODO: Replace with actual Firecrawl implementation
-            # This is a placeholder for the Firecrawl integration
-            response = requests.get(url)
-            response.raise_for_status()
-            return {"content": response.text}
+            # Use Firecrawl to scrape the URL
+            result = self.firecrawl.scrape(url, output_format='json')
+            return result
         except Exception as e:
             logger.error(f"Failed to scrape URL {url}: {str(e)}")
             return None
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         try:
-            # TODO: Replace with actual OpenAI implementation
-            # This is a placeholder for the OpenAI integration
-            return []
+            # Prepare the prompt for the LLM
+            prompt = f"""
+            Analyze the following website content and extract tour dates for {artist.name} in these cities: {artist.cities}
+            
+            Content:
+            {json.dumps(scraped_data, indent=2)}
+            
+            Extract tour dates in this format:
+            {{
+                "city": "City name",
+                "venue": "Venue name",
+                "date": "YYYY-MM-DD",
+                "ticket_url": "URL to tickets"
+            }}
+            
+            Only include dates in the specified cities. Return a JSON array of tour dates.
+            """
+            
+            # Call OpenAI API
+            response = openai.ChatCompletion.create(
+                model="gpt-4",
+                messages=[
+                    {"role": "system", "content": "You are a tour date extraction assistant. Extract tour dates from website content."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+            
+            # Parse the response
+            try:
+                tour_dates = json.loads(response.choices[0].message.content)
+                return tour_dates if isinstance(tour_dates, list) else []
+            except json.JSONDecodeError:
+                logger.error("Failed to parse LLM response as JSON")
+                return []
+                
         except Exception as e:
             logger.error(f"Failed to process data with LLM: {str(e)}")
             return []

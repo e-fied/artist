@@ -1,0 +1,53 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+# Artist Tour Tracker Project Rules
+
+## General Rules
+
+1. **Language and Framework**:
+   - Use Python 3.11 or later.
+   - Use Flask for the web application.
+   - Use SQLAlchemy for database operations with SQLite.
+
+2. **Coding Standards**:
+   - Adhere to PEP 8 guidelines.
+   - Use descriptive variable names.
+   - Comment code where necessary for clarity.
+
+3. **Libraries and Dependencies**:
+   - Use `requests` for HTTP requests.
+   - Use `schedule` for scheduling tasks.
+   - Use `python-telegrambot` for Telegram notifications.
+
+4. **Error Handling**:
+   - Implement try-except blocks to handle exceptions.
+   - Log errors using a logging mechanism.
+
+5. **Security**:
+   - Do not hardcode sensitive information.
+   - Use environment variables for secrets.
+
+6. **Testing**:
+   - Consider writing unit tests for critical components.
+
+## Project-Specific Instructions
+
+1. **Artist Management**:
+   - Manage artists, their URLs, and cities to track.
+   - Provide a web interface to add, edit, and manage artists.
+
+2. **Scraping and Processing**:
+   - Use Firecrawl to scrape artist websites.
+   - Process scraped data with an LLM to find tour dates in specified cities.
+
+3. **Notifications**:
+   - Send Telegram notifications when tour dates are found.
+
+4. **Scheduling**:
+   - Schedule checks twice a day (e.g., 9 AM and 9 PM).
+
+5. **Database**:
+   - Use SQLite for storing artist data and settings.
