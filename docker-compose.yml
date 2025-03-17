@@ -11,5 +11,10 @@ services:
     restart: unless-stopped
     labels:
       - "com.unraid.container.name=Artist Tour Tracker"
-      - "com.unraid.container.icon=https://raw.githubusercontent.com/yourusername/yourrepo/main/icon.png"
-      - "com.unraid.container.description=Artist Tour Tracker application" 
+      - "com.unraid.container.icon=https://raw.githubusercontent.com/e-fied/artist/main/icon.png"
+      - "com.unraid.container.description=Artist Tour Tracker application"
+      - "com.centurylinklabs.watchtower.enable=true"
+      - "com.centurylinklabs.watchtower.monitor-only=false"
+      - "com.centurylinklabs.watchtower.schedule=0 0 * * * *" 
+
+      
