@@ -8,6 +8,7 @@ class Artist(db.Model):
     cities = db.Column(db.String(500))  # Comma-separated cities
     on_hold = db.Column(db.Boolean, default=False)
     last_checked = db.Column(db.DateTime)
+    use_ticketmaster = db.Column(db.Boolean, default=False)  # New flag for Ticketmaster API
 
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)

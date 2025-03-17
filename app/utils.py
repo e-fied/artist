@@ -23,6 +23,58 @@ logger = logging.getLogger(__name__)
 # Set Vancouver timezone
 vancouver_tz = pytz.timezone('America/Vancouver')
 
+class TicketmasterClient:
+    def __init__(self):
+        self.api_key = os.getenv('TICKETMASTER_API_KEY')
+        if not self.api_key:
+            logger.error("Missing Ticketmaster API key in environment variables")
+            raise ValueError("Ticketmaster API key not found in environment variables")
+        self.base_url = "https://app.ticketmaster.com/discovery/v2/events.json"
+    
+    def search_events(self, artist_name: str, cities: List[str]) -> List[Dict]:
+        tour_dates = []
+        
+        for city in cities:
+            try:
+                # Search for events in each city
+                params = {
+                    'apikey': self.api_key,
+                    'keyword': artist_name,
+                    'city': city,
+                    'countryCode': 'US,CA',  # Limit to US and Canada
+                    'classificationName': 'music',  # Only music events
+                    'sort': 'date,asc'
+                }
+                
+                response = requests.get(self.base_url, params=params)
+                response.raise_for_status()
+                data = response.json()
+                
+                if '_embedded' in data and 'events' in data['_embedded']:
+                    for event in data['_embedded']['events']:
+                        # Extract venue information
+                        venue = event['_embedded']['venues'][0]
+                        
+                        # Format the date
+                        date = event['dates']['start'].get('localDate')
+                        
+                        # Get ticket URL
+                        ticket_url = event.get('url', '')
+                        
+                        tour_dates.append({
+                            'city': venue['city']['name'],
+                            'venue': venue['name'],
+                            'date': date,
+                            'ticket_url': ticket_url,
+                            'source_url': ticket_url  # Use ticket URL as source for consistency
+                        })
+                
+            except Exception as e:
+                logger.error(f"Error searching Ticketmaster for {artist_name} in {city}: {str(e)}")
+                continue
+        
+        return tour_dates
+
 class TelegramNotifier:
     def __init__(self):
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
@@ -74,6 +126,11 @@ class TourScraper:
         # Initialize the model
         self.model = genai.GenerativeModel('gemini-2.0-flash-lite')
         self.firecrawl = FirecrawlApp(api_key=os.getenv('FIRECRAWL_API_KEY'))
+        self.ticketmaster = None
+        try:
+            self.ticketmaster = TicketmasterClient()
+        except ValueError:
+            logger.warning("Ticketmaster client initialization failed - will only use web scraping")
 
     def scrape_url(self, url: str) -> Optional[Dict]:
         try:
@@ -159,43 +216,54 @@ Only include dates in the specified cities. If no dates are found, return an emp
 
     def check_artist(self, artist: Artist) -> List[Dict]:
         logger.info(f"Starting check for artist: {artist.name}")
-        logger.info(f"Using Gemini API key: {'Set' if self.gemini_api_key else 'Not Set'}")
         
         if artist.on_hold:
             logger.info(f"Skipping {artist.name} - on hold")
             return []
 
         tour_dates = []
-        urls = [url.strip() for url in artist.urls.split(',')]
         cities = [city.strip() for city in artist.cities.split(',')]
         scrape_errors = []
         
-        logger.info(f"Checking URLs for {artist.name}: {urls}")
-        logger.info(f"Looking for cities: {cities}")
-
-        for url in urls:
+        # If Ticketmaster is enabled and available, try it first
+        if artist.use_ticketmaster and self.ticketmaster:
             try:
-                logger.info(f"Scraping URL: {url}")
-                scraped_data = self.scrape_url(url)
-                
-                if scraped_data:
-                    logger.info(f"Successfully scraped data from {url}")
-                    logger.info("Sending data to LLM for processing...")
-                    dates = self.process_with_llm(scraped_data, artist)
-                    logger.info(f"LLM processing complete. Found {len(dates)} dates")
-                    # Add source URL to each tour date
-                    for date in dates:
-                        date['source_url'] = url
-                    tour_dates.extend(dates)
-                else:
-                    error_msg = f"Failed to scrape data from {url}"
-                    logger.error(error_msg)
-                    scrape_errors.append({"url": url, "error": "Failed to scrape data"})
-                    
+                logger.info(f"Checking Ticketmaster for {artist.name}")
+                tour_dates = self.ticketmaster.search_events(artist.name, cities)
+                logger.info(f"Found {len(tour_dates)} dates on Ticketmaster")
             except Exception as e:
-                error_msg = f"Error processing {url}: {str(e)}"
+                error_msg = f"Error checking Ticketmaster: {str(e)}"
                 logger.error(error_msg)
-                scrape_errors.append({"url": url, "error": str(e)})
+                scrape_errors.append({"url": "Ticketmaster API", "error": str(e)})
+
+        # If no Ticketmaster results or Ticketmaster is not enabled, try web scraping
+        if not tour_dates and not artist.use_ticketmaster:
+            urls = [url.strip() for url in artist.urls.split(',')]
+            logger.info(f"Checking URLs for {artist.name}: {urls}")
+            
+            for url in urls:
+                try:
+                    logger.info(f"Scraping URL: {url}")
+                    scraped_data = self.scrape_url(url)
+                    
+                    if scraped_data:
+                        logger.info(f"Successfully scraped data from {url}")
+                        logger.info("Sending data to LLM for processing...")
+                        dates = self.process_with_llm(scraped_data, artist)
+                        logger.info(f"LLM processing complete. Found {len(dates)} dates")
+                        # Add source URL to each tour date
+                        for date in dates:
+                            date['source_url'] = url
+                        tour_dates.extend(dates)
+                    else:
+                        error_msg = f"Failed to scrape data from {url}"
+                        logger.error(error_msg)
+                        scrape_errors.append({"url": url, "error": "Failed to scrape data"})
+                        
+                except Exception as e:
+                    error_msg = f"Error processing {url}: {str(e)}"
+                    logger.error(error_msg)
+                    scrape_errors.append({"url": url, "error": str(e)})
 
         # Update last_checked timestamp with Vancouver time
         artist.last_checked = datetime.now(vancouver_tz)
