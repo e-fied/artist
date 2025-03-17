@@ -168,6 +168,7 @@ Only include dates in the specified cities. If no dates are found, return an emp
         tour_dates = []
         urls = [url.strip() for url in artist.urls.split(',')]
         cities = [city.strip() for city in artist.cities.split(',')]
+        scrape_errors = []
         
         logger.info(f"Checking URLs for {artist.name}: {urls}")
         logger.info(f"Looking for cities: {cities}")
@@ -182,16 +183,32 @@ Only include dates in the specified cities. If no dates are found, return an emp
                     logger.info("Sending data to LLM for processing...")
                     dates = self.process_with_llm(scraped_data, artist)
                     logger.info(f"LLM processing complete. Found {len(dates)} dates")
+                    # Add source URL to each tour date
+                    for date in dates:
+                        date['source_url'] = url
                     tour_dates.extend(dates)
                 else:
-                    logger.error(f"Failed to scrape data from {url}")
+                    error_msg = f"Failed to scrape data from {url}"
+                    logger.error(error_msg)
+                    scrape_errors.append({"url": url, "error": "Failed to scrape data"})
                     
             except Exception as e:
-                logger.error(f"Error processing {url}: {str(e)}")
+                error_msg = f"Error processing {url}: {str(e)}"
+                logger.error(error_msg)
+                scrape_errors.append({"url": url, "error": str(e)})
 
         # Update last_checked timestamp with Vancouver time
         artist.last_checked = datetime.now(vancouver_tz)
         db.session.commit()
+        
+        # Send error notifications if any
+        if scrape_errors:
+            notifier = TelegramNotifier()
+            error_message = f"⚠️ <b>Scraping errors for {artist.name}</b>\n\n"
+            for error in scrape_errors:
+                error_message += f"🔗 <a href='{error['url']}'>{error['url']}</a>\n"
+                error_message += f"❌ Error: {error['error']}\n\n"
+            notifier.send_message(error_message)
         
         logger.info(f"Check complete for {artist.name}. Found {len(tour_dates)} total tour dates")
         return tour_dates
@@ -207,6 +224,13 @@ def check_all_artists():
             if tour_dates:
                 # Format the message with HTML styling
                 message = f"🎵 <b>New tour dates found for {artist.name}!</b>\n\n"
+                
+                # Add source URLs at the top
+                source_urls = list(set(date['source_url'] for date in tour_dates))
+                message += "🔍 <b>Source Pages:</b>\n"
+                for url in source_urls:
+                    message += f"• <a href='{url}'>{url}</a>\n"
+                message += "\n"
                 
                 # Group dates by city
                 dates_by_city = {}
