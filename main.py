@@ -50,10 +50,12 @@ if __name__ == "__main__":
     with app.app_context():
         db.create_all()
     
-    # Start the scheduler in a separate thread
-    import threading
-    scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
-    scheduler_thread.start()
+    # Start the scheduler only in the main process (not in Flask reloader)
+    if not os.environ.get('WERKZEUG_RUN_MAIN'):
+        import threading
+        scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+        scheduler_thread.start()
+        logger.info("Scheduler started in main process")
     
     # Run the Flask app
     app.run(host='0.0.0.0', port=5000, debug=True)
