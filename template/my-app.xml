@@ -1,0 +1,20 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>Artist Tour Tracker</Name>
+  <Repository>ghcr.io/e-fied/artist:latest</Repository>
+  <Registry>ghcr.io</Registry>
+  <Network>bridge</Network>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/e-fied/artist/issues</Support>
+  <Project>https://github.com/e-fied/artist</Project>
+  <Overview>Artist Tour Tracker - Tracks artist tour dates and sends notifications via Telegram</Overview>
+  <Category>Tools:</Category>
+  <WebUI>http://[IP]:[PORT:5001]</WebUI>
+  <TemplateURL>https://raw.githubusercontent.com/e-fied/artist/main/template/my-app.xml</TemplateURL>
+  <Icon>https://raw.githubusercontent.com/e-fied/artist/main/icon.png</Icon>
+  <Port>5001</Port>
+  <Volume>
+    <Source>/mnt/user/appdata/artist/data</Source>
+    <Target>/app/data</Target>
+  </Volume>
+</Container>

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  artist:
+    build: .
+    container_name: artist
+    ports:
+      - "5001:5000"
+    volumes:
+      - /mnt/user/appdata/artist/data:/app/data
+    restart: unless-stopped
+    labels:
+      - "com.unraid.container.name=Artist Tour Tracker"
+      - "com.unraid.container.icon=https://raw.githubusercontent.com/yourusername/yourrepo/main/icon.png"
+      - "com.unraid.container.description=Artist Tour Tracker application" 
