@@ -8,6 +8,23 @@ services:
       - "5001:5000"
     volumes:
       - /mnt/user/appdata/artist/data:/app/data
+    environment:
+      - TICKETMASTER_API_KEY=your_key_here
+      - TZ=America/Los_Angeles
+      - HOST_OS=Unraid
+      - HOST_HOSTNAME=Nas
+      - HOST_CONTAINERNAME=Artist
+      - CHECK_FREQUENCY=09:00,21:00
+      - GEMINI_API_KEY=your_key_here
+      - TELEGRAM_BOT_TOKEN=your_key_here
+      - TELEGRAM_CHAT_ID=your_id_here
+      - FIRECRAWL_API_KEY=your_key_here
+      - FLASK_APP=main.py
+      - FLASK_ENV=production
+      - FLASK_DEBUG=0
+      - DATABASE_URL=sqlite:///artists.db
+      - PUID=99
+      - PGID=100
     restart: unless-stopped
     labels:
       - "com.unraid.container.name=Artist Tour Tracker"
