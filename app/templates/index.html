@@ -3,62 +3,141 @@
 {% block content %}
 <div class="container">
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1>Artists</h1>
+        <div>
+            <h1 class="mb-1">Artists</h1>
+            <p class="text-secondary mb-0">Track tour dates for your favorite artists</p>
+        </div>
         <div class="btn-group">
-            <a href="{{ url_for('check_all') }}" class="btn btn-success me-2">Check All Artists</a>
-            <a href="{{ url_for('add_artist') }}" class="btn btn-primary">Add Artist</a>
+            <a href="{{ url_for('check_all') }}" class="btn btn-success">
+                <i class="bi bi-search me-2"></i>Check All Artists
+            </a>
+            <a href="{{ url_for('add_artist') }}" class="btn btn-primary">
+                <i class="bi bi-plus-lg me-2"></i>Add Artist
+            </a>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Cities</th>
-                            <th>URLs</th>
-                            <th>Status</th>
-                            <th>Last Checked</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for artist in artists %}
-                        <tr>
-                            <td>{{ artist.name }}</td>
-                            <td>{{ artist.cities }}</td>
-                            <td>
-                                {% for url in artist.urls.split(',') %}
-                                <a href="{{ url.strip() }}" target="_blank" class="text-truncate d-inline-block" style="max-width: 200px;">
-                                    {{ url.strip() }}
-                                </a><br>
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Cities</th>
+                                    <th>Status</th>
+                                    <th>Last Checked</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for artist in artists %}
+                                <tr>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                                            {{ artist.name }}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex flex-wrap gap-1">
+                                            {% for city in artist.cities.split(',') %}
+                                            <span class="badge bg-secondary">{{ city.strip() }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        {% if artist.on_hold %}
+                                        <span class="badge bg-warning">On Hold</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if artist.last_checked %}
+                                        <span class="text-secondary">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') }}</span>
+                                        {% else %}
+                                        <span class="text-secondary">Never</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group">
+                                            <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-outline-success">
+                                                <i class="bi bi-search"></i>
+                                            </a>
+                                            <a href="{{ url_for('delete_artist', id=artist.id) }}" 
+                                               class="btn btn-sm btn-outline-danger" 
+                                               onclick="return confirm('Are you sure you want to delete {{ artist.name }}?')">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
                                 {% endfor %}
-                            </td>
-                            <td>
-                                {% if artist.on_hold %}
-                                <span class="badge bg-warning">On Hold</span>
-                                {% else %}
-                                <span class="badge bg-success">Active</span>
-                                {% endif %}
-                            </td>
-                            <td>{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</td>
-                            <td>
-                                <div class="btn-group">
-                                    <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-primary">Edit</a>
-                                    <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-success">Check Now</a>
-                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" 
-                                       class="btn btn-sm btn-danger" 
-                                       onclick="return confirm('Are you sure you want to delete {{ artist.name }}?')">Delete</a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Activity Log</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <div class="logging-panel" id="loggingPanel">
+                        <div class="log-entry info">
+                            <i class="bi bi-info-circle me-2"></i>System ready
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<script>
+function addLogEntry(message, type = 'info') {
+    const panel = document.getElementById('loggingPanel');
+    const entry = document.createElement('div');
+    entry.className = `log-entry ${type} fade-in`;
+    
+    const icon = type === 'info' ? 'info-circle' :
+                 type === 'success' ? 'check-circle' :
+                 type === 'error' ? 'x-circle' :
+                 'exclamation-circle';
+    
+    entry.innerHTML = `<i class="bi bi-${icon} me-2"></i>${message}`;
+    
+    panel.insertBefore(entry, panel.firstChild);
+    panel.scrollTop = 0;
+}
+
+function clearLog() {
+    const panel = document.getElementById('loggingPanel');
+    panel.innerHTML = '<div class="log-entry info"><i class="bi bi-info-circle me-2"></i>System ready</div>';
+}
+
+// Listen for server-sent events
+const eventSource = new EventSource('/events');
+eventSource.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    addLogEntry(data.message, data.type);
+};
+
+// Clean up on page unload
+window.addEventListener('beforeunload', function() {
+    eventSource.close();
+});
+</script>
 {% endblock %}

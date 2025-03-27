@@ -1,16 +1,42 @@
-from flask import render_template, request, redirect, url_for, flash
+from flask import render_template, request, redirect, url_for, flash, Response
 from app import app, db
 from app.models import Artist, Settings
 from app.utils import check_all_artists, TourScraper, TelegramNotifier
 from datetime import datetime
 import logging
+import json
+from queue import Queue
+import threading
 
 logger = logging.getLogger(__name__)
+
+# Create a queue for log messages
+log_queue = Queue()
+
+def log_message(message, type='info'):
+    """Add a message to the log queue"""
+    log_queue.put({'message': message, 'type': type})
 
 @app.route('/')
 def index():
     artists = Artist.query.all()
     return render_template('index.html', artists=artists)
+
+@app.route('/events')
+def events():
+    """Server-sent events endpoint for real-time logging"""
+    def generate():
+        while True:
+            try:
+                # Get message from queue (non-blocking)
+                message = log_queue.get_nowait()
+                yield f"data: {json.dumps(message)}\n\n"
+            except:
+                # If no message, yield empty to keep connection alive
+                yield "data: {}\n\n"
+                break
+
+    return Response(generate(), mimetype='text/event-stream')
 
 @app.route('/add_artist', methods=['GET', 'POST'])
 def add_artist():
@@ -23,6 +49,7 @@ def add_artist():
         artist = Artist(name=name, urls=urls, cities=cities, on_hold=on_hold, use_ticketmaster=use_ticketmaster)
         db.session.add(artist)
         db.session.commit()
+        log_message(f'Artist "{name}" added successfully!', 'success')
         flash('Artist added successfully!', 'success')
         return redirect(url_for('index'))
     return render_template('add_artist.html')
@@ -31,12 +58,14 @@ def add_artist():
 def edit_artist(id):
     artist = Artist.query.get_or_404(id)
     if request.method == 'POST':
+        old_name = artist.name
         artist.name = request.form['name']
         artist.urls = request.form['urls']
         artist.cities = request.form['cities']
         artist.on_hold = 'on_hold' in request.form
         artist.use_ticketmaster = 'use_ticketmaster' in request.form
         db.session.commit()
+        log_message(f'Artist "{old_name}" updated to "{artist.name}"', 'success')
         flash('Artist updated successfully!', 'success')
         return redirect(url_for('index'))
     return render_template('edit_artist.html', artist=artist)
@@ -59,6 +88,8 @@ def settings():
 def check_artist(id):
     try:
         artist = Artist.query.get_or_404(id)
+        log_message(f'Starting check for artist: {artist.name}', 'info')
+        
         scraper = TourScraper()
         notifier = TelegramNotifier()
         
@@ -84,14 +115,19 @@ def check_artist(id):
                     )
             
             if notifier.send_message(message):
+                log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
                 flash(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
             else:
+                log_message(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
                 flash(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
         else:
+            log_message(f'No tour dates found for {artist.name} in the specified cities.', 'info')
             flash(f'No tour dates found for {artist.name} in the specified cities.', 'info')
             
     except Exception as e:
-        flash(f'Error checking tour dates: {str(e)}', 'error')
+        error_msg = f'Error checking tour dates: {str(e)}'
+        log_message(error_msg, 'error')
+        flash(error_msg, 'error')
         logger.error(f"Error in check_artist route: {str(e)}")
     
     return redirect(url_for('index'))
@@ -99,11 +135,14 @@ def check_artist(id):
 @app.route('/check_all')
 def check_all():
     try:
-        from app.utils import check_all_artists
+        log_message('Starting check for all artists...', 'info')
         check_all_artists()
+        log_message('Completed checking all artists!', 'success')
         flash('Checked all artists for tour dates!', 'success')
     except Exception as e:
-        flash(f'Error checking all artists: {str(e)}', 'error')
+        error_msg = f'Error checking all artists: {str(e)}'
+        log_message(error_msg, 'error')
+        flash(error_msg, 'error')
     return redirect(url_for('index'))
 
 @app.route('/delete_artist/<int:id>')
@@ -113,7 +152,10 @@ def delete_artist(id):
         name = artist.name
         db.session.delete(artist)
         db.session.commit()
+        log_message(f'Artist "{name}" has been deleted.', 'success')
         flash(f'Artist "{name}" has been deleted.', 'success')
     except Exception as e:
-        flash(f'Error deleting artist: {str(e)}', 'error')
+        error_msg = f'Error deleting artist: {str(e)}'
+        log_message(error_msg, 'error')
+        flash(error_msg, 'error')
     return redirect(url_for('index'))
