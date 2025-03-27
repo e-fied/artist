@@ -1,26 +1,35 @@
-from flask import render_template, request, redirect, url_for, flash, Response
+from flask import render_template, request, redirect, url_for, flash, Response, jsonify
 from app import app, db
 from app.models import Artist, Settings
-from app.utils import check_all_artists, TourScraper, TelegramNotifier
+from app.utils import check_all_artists, TourScraper, TelegramNotifier, FileLogger, logger
 from datetime import datetime
-import logging
 import json
 from queue import Queue
 import threading
 
-logger = logging.getLogger(__name__)
-
 # Create a queue for log messages
 log_queue = Queue()
+file_logger = FileLogger()
 
 def log_message(message, type='info'):
-    """Add a message to the log queue"""
-    log_queue.put({'message': message, 'type': type})
+    """Add a message to the log queue and file"""
+    log_data = {'message': message, 'type': type, 'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+    log_queue.put(log_data)
+    
+    # Also log to file
+    if type == 'error':
+        logger.error(message)
+    elif type == 'warning':
+        logger.warning(message)
+    else:
+        logger.info(message)
 
 @app.route('/')
 def index():
     artists = Artist.query.all()
-    return render_template('index.html', artists=artists)
+    # Get latest logs for initial display
+    latest_logs = file_logger.get_latest_logs(20)
+    return render_template('index.html', artists=artists, initial_logs=latest_logs)
 
 @app.route('/events')
 def events():
@@ -29,14 +38,25 @@ def events():
         while True:
             try:
                 # Get message from queue (non-blocking)
-                message = log_queue.get_nowait()
+                message = log_queue.get(timeout=1)
                 yield f"data: {json.dumps(message)}\n\n"
             except:
-                # If no message, yield empty to keep connection alive
-                yield "data: {}\n\n"
-                break
+                # If no message after timeout, send heartbeat
+                yield f"data: {json.dumps({'type': 'heartbeat'})}\n\n"
 
     return Response(generate(), mimetype='text/event-stream')
+
+@app.route('/logs')
+def get_logs():
+    """API endpoint to get latest logs"""
+    logs = file_logger.get_latest_logs(100)
+    return jsonify(logs)
+
+@app.route('/logs/clear', methods=['POST'])
+def clear_logs():
+    """API endpoint to clear logs"""
+    file_logger.clear_logs()
+    return jsonify({'status': 'success'})
 
 @app.route('/add_artist', methods=['GET', 'POST'])
 def add_artist():

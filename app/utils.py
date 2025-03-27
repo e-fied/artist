@@ -11,17 +11,56 @@ from pydantic import BaseModel
 from firecrawl import FirecrawlApp
 import os
 import pytz
+from pathlib import Path
 
 # Configure logging
-logging.basicConfig(
-    filename='data/app.log',
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-logger = logging.getLogger(__name__)
+log_dir = Path('/app/data/logs')
+log_dir.mkdir(parents=True, exist_ok=True)
+
+# Configure file logger
+file_handler = logging.FileHandler(log_dir / 'app.log')
+file_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(levelname)s - %(message)s'
+))
+
+# Configure console logger
+console_handler = logging.StreamHandler()
+console_handler.setFormatter(logging.Formatter(
+    '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+))
+
+# Setup root logger
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(console_handler)
 
 # Set Vancouver timezone
 vancouver_tz = pytz.timezone('America/Vancouver')
+
+class FileLogger:
+    def __init__(self):
+        self.log_dir = log_dir
+        
+    def get_latest_logs(self, n=100):
+        """Get the latest n log entries"""
+        try:
+            with open(self.log_dir / 'app.log', 'r') as f:
+                # Read last n lines
+                lines = f.readlines()[-n:]
+                return [line.strip() for line in lines]
+        except Exception as e:
+            logger.error(f"Error reading logs: {str(e)}")
+            return []
+    
+    def clear_logs(self):
+        """Clear the log file"""
+        try:
+            with open(self.log_dir / 'app.log', 'w') as f:
+                f.write('')
+            logger.info("Logs cleared")
+        except Exception as e:
+            logger.error(f"Error clearing logs: {str(e)}")
 
 class TicketmasterClient:
     def __init__(self):
