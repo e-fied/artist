@@ -3,13 +3,11 @@ version: '3.8'
 services:
   artist:
     build: .
-    container_name: artist
+    container_name: Artist
     ports:
       - "5001:5000"
     volumes:
       - /mnt/user/appdata/artist/data:/app/data
-    environment:
-      - TICKETMASTER_API_KEY=${TICKETMASTER_API_KEY}
     restart: unless-stopped
     labels:
       - "com.unraid.container.name=Artist Tour Tracker"
