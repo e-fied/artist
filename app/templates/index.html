@@ -98,7 +98,10 @@
             <div class="modal-body text-center p-5">
                 <div class="spinner mb-4"></div>
                 <h5 class="modal-title mb-3">Checking for Tour Dates</h5>
-                <p class="text-secondary mb-0" id="loadingStatus">Please wait while we search for tour dates...</p>
+                <p class="text-secondary mb-3" id="loadingStatus">Initializing search...</p>
+                <div class="loading-details" id="loadingDetails">
+                    <!-- Detailed progress will be shown here -->
+                </div>
             </div>
         </div>
     </div>
@@ -119,6 +122,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const url = this.href;
             loadingModal.show();
             
+            // Clear previous details
+            const detailsContainer = document.getElementById('loadingDetails');
+            detailsContainer.innerHTML = '';
+            
             // Start listening for events
             if (eventSource) {
                 eventSource.close();
@@ -127,7 +134,26 @@ document.addEventListener('DOMContentLoaded', function() {
             eventSource.onmessage = function(event) {
                 const data = JSON.parse(event.data);
                 if (data.type !== 'heartbeat') {
+                    // Update main status
                     document.getElementById('loadingStatus').textContent = data.message;
+                    
+                    // Add detailed entry
+                    const entry = document.createElement('p');
+                    entry.className = data.type;
+                    
+                    let icon = '🔍';
+                    if (data.type === 'success') icon = '✅';
+                    else if (data.type === 'error') icon = '❌';
+                    else if (data.type === 'warning') icon = '⚠️';
+                    
+                    entry.textContent = `${icon} ${data.message}`;
+                    
+                    if (data.details) {
+                        entry.textContent += `\n    ${data.details}`;
+                    }
+                    
+                    detailsContainer.insertBefore(entry, detailsContainer.firstChild);
+                    detailsContainer.scrollTop = 0;
                 }
             };
             

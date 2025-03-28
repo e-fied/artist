@@ -3,7 +3,7 @@
     --bg-secondary: #141414;
     --bg-tertiary: #1c1c1c;
     --text-primary: #ffffff;
-    --text-secondary: #b0b0b0;
+    --text-secondary: #d0d0d0;
     --accent-primary: #2196f3;
     --accent-secondary: #1976d2;
     --success: #4caf50;
@@ -75,7 +75,7 @@ body {
 .table thead th {
     background-color: var(--bg-tertiary);
     border-bottom: 2px solid var(--border-color);
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-weight: 600;
     padding: 1rem;
 }
@@ -85,6 +85,7 @@ body {
     padding: 1rem;
     vertical-align: middle;
     background-color: var(--bg-secondary);
+    color: var(--text-primary);
 }
 
 .table tbody tr:hover td {
@@ -182,7 +183,7 @@ body {
 }
 
 .form-label {
-    color: var(--text-secondary);
+    color: var(--text-primary);
     font-weight: 500;
     margin-bottom: 0.5rem;
 }
@@ -194,7 +195,7 @@ body {
 }
 
 .form-check-label {
-    color: var(--text-secondary);
+    color: var(--text-primary);
 }
 
 .form-check-input {
@@ -215,7 +216,7 @@ body {
 
 .badge.bg-secondary {
     background-color: var(--bg-tertiary) !important;
-    color: var(--text-secondary);
+    color: var(--text-primary);
 }
 
 .alert {
@@ -361,4 +362,100 @@ body {
 
 .status-indicator.on-hold {
     background-color: var(--warning);
+}
+
+/* Global styles */
+body {
+    background-color: var(--bg-primary);
+    color: var(--text-primary);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    min-height: 100vh;
+}
+
+/* Card styles */
+.card-header h2 {
+    color: var(--text-primary);
+    margin: 0;
+}
+
+/* Table styles */
+.table thead th {
+    background-color: var(--bg-tertiary);
+    border-bottom: 2px solid var(--border-color);
+    color: var(--text-primary);
+    font-weight: 600;
+    padding: 1rem;
+}
+
+.table td {
+    border-bottom: 1px solid var(--border-color);
+    padding: 1rem;
+    vertical-align: middle;
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+/* Badge styles */
+.badge.bg-secondary {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary);
+}
+
+/* Form styles */
+.form-label {
+    color: var(--text-primary);
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+}
+
+.form-text {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+}
+
+.form-check-label {
+    color: var(--text-primary);
+}
+
+/* Modal styles */
+.modal-title {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+#loadingStatus {
+    color: var(--text-primary);
+    font-size: 0.95rem;
+}
+
+.loading-details {
+    margin-top: 1rem;
+    text-align: left;
+    font-family: 'Monaco', 'Consolas', monospace;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    max-height: 150px;
+    overflow-y: auto;
+    padding: 0.5rem;
+    background-color: var(--bg-tertiary);
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.loading-details p {
+    margin: 0;
+    padding: 0.25rem 0;
+}
+
+.loading-details .success {
+    color: var(--success);
+}
+
+.loading-details .warning {
+    color: var(--warning);
+}
+
+.loading-details .error {
+    color: var(--danger);
 }
