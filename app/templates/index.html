@@ -17,97 +17,75 @@
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-8">
-            <div class="card mb-4">
-                <div class="card-body">
-                    <div class="table-responsive">
-                        <table class="table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>Cities</th>
-                                    <th>Status</th>
-                                    <th>Last Checked</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for artist in artists %}
-                                <tr>
-                                    <td>
-                                        <div class="d-flex align-items-center">
-                                            <i class="bi bi-music-note-beamed me-2 text-primary"></i>
-                                            {{ artist.name }}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        <div class="d-flex flex-wrap gap-1">
-                                            {% for city in artist.cities.split(',') %}
-                                            <span class="badge bg-secondary">{{ city.strip() }}</span>
-                                            {% endfor %}
-                                        </div>
-                                    </td>
-                                    <td>
-                                        {% if artist.on_hold %}
-                                        <span class="badge bg-warning">On Hold</span>
-                                        {% else %}
-                                        <span class="badge bg-success">Active</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if artist.last_checked %}
-                                        <span class="text-secondary">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') }}</span>
-                                        {% else %}
-                                        <span class="text-secondary">Never</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        <div class="btn-group">
-                                            <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-outline-primary">
-                                                <i class="bi bi-pencil"></i>
-                                            </a>
-                                            <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-outline-success check-button">
-                                                <i class="bi bi-search"></i>
-                                            </a>
-                                            <a href="{{ url_for('delete_artist', id=artist.id) }}" 
-                                               class="btn btn-sm btn-outline-danger" 
-                                               onclick="return confirm('Are you sure you want to delete {{ artist.name }}?')">
-                                                <i class="bi bi-trash"></i>
-                                            </a>
-                                        </div>
-                                    </td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <div class="col-lg-4">
-            <div class="card">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Activity Log</h5>
-                    <div class="btn-group">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="clearLog()">
-                            <i class="bi bi-trash"></i>
-                        </button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="viewFullLogs()">
-                            <i class="bi bi-arrows-fullscreen"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <div class="logging-panel" id="loggingPanel">
-                        {% for log in initial_logs %}
-                        <div class="log-entry info">
-                            <i class="bi bi-info-circle me-2"></i>{{ log }}
-                        </div>
+    <div class="card">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Cities</th>
+                            <th>Status</th>
+                            <th>Last Checked</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for artist in artists %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                                    {{ artist.name }}
+                                </div>
+                            </td>
+                            <td>
+                                <div class="d-flex flex-wrap gap-1">
+                                    {% for city in artist.cities.split(',') %}
+                                    <span class="badge bg-secondary">{{ city.strip() }}</span>
+                                    {% endfor %}
+                                </div>
+                            </td>
+                            <td>
+                                {% if artist.on_hold %}
+                                <div class="d-flex align-items-center">
+                                    <span class="status-indicator on-hold"></span>
+                                    <span class="badge bg-warning">On Hold</span>
+                                </div>
+                                {% else %}
+                                <div class="d-flex align-items-center">
+                                    <span class="status-indicator active"></span>
+                                    <span class="badge bg-success">Active</span>
+                                </div>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if artist.last_checked %}
+                                <span class="text-secondary">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') }}</span>
+                                {% else %}
+                                <span class="text-secondary">Never</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-outline-success check-button" title="Check Now">
+                                        <i class="bi bi-search"></i>
+                                    </a>
+                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" 
+                                       class="btn btn-sm btn-outline-danger" 
+                                       onclick="return confirm('Are you sure you want to delete {{ artist.name }}?')"
+                                       title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
                         {% endfor %}
-                    </div>
-                </div>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -120,24 +98,7 @@
             <div class="modal-body text-center p-5">
                 <div class="spinner mb-4"></div>
                 <h5 class="modal-title mb-3">Checking for Tour Dates</h5>
-                <p class="text-secondary mb-0">Please wait while we search for tour dates. This may take a few moments...</p>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Full Logs Modal -->
-<div class="modal fade" id="fullLogsModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Full Activity Log</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div class="logging-panel" id="fullLogsPanel" style="max-height: 70vh;">
-                    <!-- Logs will be loaded here -->
-                </div>
+                <p class="text-secondary mb-0" id="loadingStatus">Please wait while we search for tour dates...</p>
             </div>
         </div>
     </div>
@@ -145,11 +106,10 @@
 
 <script>
 let loadingModal = null;
-let fullLogsModal = null;
+let eventSource = null;
 
 document.addEventListener('DOMContentLoaded', function() {
     loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
-    fullLogsModal = new bootstrap.Modal(document.getElementById('fullLogsModal'));
     
     // Handle check buttons
     const checkButtons = document.querySelectorAll('.check-button');
@@ -159,6 +119,18 @@ document.addEventListener('DOMContentLoaded', function() {
             const url = this.href;
             loadingModal.show();
             
+            // Start listening for events
+            if (eventSource) {
+                eventSource.close();
+            }
+            eventSource = new EventSource('/events');
+            eventSource.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                if (data.type !== 'heartbeat') {
+                    document.getElementById('loadingStatus').textContent = data.message;
+                }
+            };
+            
             // Make the request
             fetch(url)
                 .then(response => {
@@ -166,15 +138,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.text();
                 })
                 .then(() => {
-                    // Wait for 3 seconds before hiding modal to ensure logs are received
+                    // Wait for 2 seconds before hiding modal
                     setTimeout(() => {
+                        if (eventSource) {
+                            eventSource.close();
+                        }
                         loadingModal.hide();
                         // Reload the page to show updated status
                         window.location.reload();
-                    }, 3000);
+                    }, 2000);
                 })
                 .catch(error => {
                     console.error('Error:', error);
+                    if (eventSource) {
+                        eventSource.close();
+                    }
                     loadingModal.hide();
                     alert('An error occurred while checking for tour dates.');
                 });
@@ -182,64 +160,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 });
 
-function addLogEntry(data) {
-    if (data.type === 'heartbeat') return;
-    
-    const panel = document.getElementById('loggingPanel');
-    const entry = document.createElement('div');
-    entry.className = `log-entry ${data.type} fade-in`;
-    
-    const icon = data.type === 'info' ? 'info-circle' :
-                data.type === 'success' ? 'check-circle' :
-                data.type === 'error' ? 'x-circle' :
-                'exclamation-circle';
-    
-    entry.innerHTML = `
-        <span class="text-secondary me-2">${data.timestamp}</span>
-        <i class="bi bi-${icon} me-2"></i>${data.message}
-    `;
-    
-    panel.insertBefore(entry, panel.firstChild);
-    panel.scrollTop = 0;
-}
-
-function clearLog() {
-    fetch('/logs/clear', { method: 'POST' })
-        .then(response => response.json())
-        .then(() => {
-            const panel = document.getElementById('loggingPanel');
-            panel.innerHTML = '<div class="log-entry info"><i class="bi bi-info-circle me-2"></i>Log cleared</div>';
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-function viewFullLogs() {
-    fetch('/logs')
-        .then(response => response.json())
-        .then(logs => {
-            const panel = document.getElementById('fullLogsPanel');
-            panel.innerHTML = logs.map(log => `
-                <div class="log-entry info">
-                    <i class="bi bi-info-circle me-2"></i>${log}
-                </div>
-            `).join('');
-            fullLogsModal.show();
-        })
-        .catch(error => console.error('Error:', error));
-}
-
-// Listen for server-sent events
-const eventSource = new EventSource('/events');
-eventSource.onmessage = function(event) {
-    const data = JSON.parse(event.data);
-    if (data.type !== 'heartbeat') {
-        addLogEntry(data);
-    }
-};
-
 // Clean up on page unload
 window.addEventListener('beforeunload', function() {
-    eventSource.close();
+    if (eventSource) {
+        eventSource.close();
+    }
 });
 </script>
 {% endblock %}

@@ -1,47 +1,58 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-8">
-        <div class="card">
-            <div class="card-header">
-                <h2 class="mb-0">Add New Artist</h2>
-            </div>
-            <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Artist Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="urls" class="form-label">URLs (one per line)</label>
-                        <textarea class="form-control" id="urls" name="urls" rows="3" required></textarea>
-                        <div class="form-text">Enter one URL per line. These will be scraped for tour dates.</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="cities" class="form-label">Cities to Track (comma-separated)</label>
-                        <input type="text" class="form-control" id="cities" name="cities" required>
-                        <div class="form-text">Enter cities separated by commas (e.g., New York, Los Angeles, Chicago)</div>
-                    </div>
-                    
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="on_hold" name="on_hold">
-                        <label class="form-check-label" for="on_hold">Put on hold (skip checking)</label>
-                    </div>
-                    
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="use_ticketmaster" name="use_ticketmaster">
-                        <label class="form-check-label" for="use_ticketmaster">Use Ticketmaster API</label>
-                        <div class="form-text">When enabled, tour dates will be fetched from Ticketmaster instead of scraping the artist's website.</div>
-                    </div>
-                    
-                    <div class="d-flex justify-content-between">
-                        <a href="{{ url_for('index') }}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Add Artist</button>
-                    </div>
-                </form>
+<div class="container">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h2 class="mb-0">Add New Artist</h2>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <div class="mb-4">
+                            <label for="name" class="form-label">Artist Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="cities" class="form-label">Cities to Track</label>
+                            <input type="text" class="form-control" id="cities" name="cities" required>
+                            <div class="form-text">Enter cities separated by commas (e.g., New York, Los Angeles, Chicago)</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <label for="urls" class="form-label">Artist URLs (Optional)</label>
+                            <textarea class="form-control" id="urls" name="urls" rows="3"></textarea>
+                            <div class="form-text">Enter one URL per line. These will be scraped for tour dates if provided.</div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="use_ticketmaster" name="use_ticketmaster" checked>
+                                <label class="form-check-label" for="use_ticketmaster">Use Ticketmaster API</label>
+                                <div class="form-text">When enabled, tour dates will be fetched from Ticketmaster. This works best for major artists and venues.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input" id="on_hold" name="on_hold">
+                                <label class="form-check-label" for="on_hold">Put on hold</label>
+                                <div class="form-text">When enabled, this artist will be skipped during checks.</div>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-lg me-2"></i>Add Artist
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
