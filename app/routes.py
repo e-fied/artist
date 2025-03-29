@@ -158,8 +158,15 @@ def check_artist_route(id):
                          message += (
                              f"  • {venue}\n"
                              f"    📅 {date_str}\n"
-                             f"{'    🎟 <a href=\"' + ticket_url + '\">Get Tickets</a>\n' if ticket_url != '#' else ''}\n"
                          )
+                         # Conditionally add the ticket link line
+                         if ticket_url != '#':
+                             # Use an f-string here, ensuring quotes are handled correctly
+                             # Using double quotes for the outer f-string allows single quotes inside easily
+                             # Or escape the double quotes for the href attribute if needed.
+                             message += f"    🎟 <a href=\"{ticket_url}\">Get Tickets</a>\n"
+                         # Add the final newline that was previously part of the conditional f-string
+                         message += "\n"
 
                  if notifier.send_message(message):
                      log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')

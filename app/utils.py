@@ -489,8 +489,6 @@ def check_all_artists():
                         # Format message by city
                         for city, dates in sorted(dates_by_city.items()): # Sort cities alphabetically
                             message += f"📍 <b>{city}</b>\n"
-                            # Sort dates within city (requires consistent date format or parsing)
-                            # Simple sort for now, assuming YYYY-MM-DD or Month D, YYYY
                             sorted_dates = sorted(dates, key=lambda x: x.get('date', ''))
                             for date_info in sorted_dates:
                                 venue = date_info.get('venue', 'Unknown Venue')
@@ -499,9 +497,12 @@ def check_all_artists():
                                 message += (
                                     f"  • {venue}\n"
                                     f"    📅 {date_str}\n"
-                                    # Only show ticket link if URL is not '#'
-                                    f"{'    🎟 <a href=\"' + ticket_url + '\">Get Tickets</a>\n' if ticket_url != '#' else ''}\n"
                                 )
+                                # Conditionally add the ticket link line
+                                if ticket_url != '#':
+                                    message += f"    🎟 <a href=\"{ticket_url}\">Get Tickets</a>\n"
+                                # Add the final newline
+                                message += "\n"
                         # Send the success notification
                         logger.info(f"Sending success notification for {len(tour_dates)} dates for {artist.name}")
                         if not notifier.send_message(message):
