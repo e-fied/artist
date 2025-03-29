@@ -88,12 +88,10 @@ class TicketmasterClient:
 
                 # Check if the location looks like a state/province code (e.g., 2 letters)
                 # You might want a more robust check depending on the codes you expect (e.g., length, characters)
-                is_state_code = len(location) == 2 and location.isalpha()
-
-                if is_state_code:
+                if len(location) == 2 and location.isalpha(): # Check if it's a state/province code
                     params['stateCode'] = location
                     search_description = f"state/province {location}"
-                else:
+                else: # Assume it's a city name
                     params['city'] = location
                     search_description = f"city {location}"
                 
@@ -101,56 +99,70 @@ class TicketmasterClient:
                 
                 response = requests.get(self.base_url, params=params)
                 response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
+
+                # --- ADD THIS LOGGING ---
+                logger.debug(f"Raw Ticketmaster API response for {search_description}: {response.text}")
+                # ------------------------
+
                 data = response.json()
 
-                if '_embedded' in data and 'events' in data['_embedded']:
-                    for event in data['_embedded']['events']:
-                        event_name = event.get('name', '').lower()
-                        # Basic check if artist name is in event name
-                        if artist_name.lower() in event_name:
-                             # Extract venue, date, and URL
-                            venue_info = event.get('_embedded', {}).get('venues', [{}])[0]
-                            venue_name = venue_info.get('name', 'N/A')
-                            event_city = venue_info.get('city', {}).get('name', 'N/A')
-                            event_state = venue_info.get('state', {}).get('stateCode', '') # Get state code
-                            display_location = f"{event_city}, {event_state}" if event_state else event_city
+                # Check if '_embedded' and 'events' exist
+                events = data.get('_embedded', {}).get('events', [])
+                if not events:
+                     logger.info(f"No events found in the '_embedded' structure for {search_description}.")
+                     # Continue to the next location instead of erroring
+                     processed_locations.add(location.lower()) # Mark location as processed even if no events found
+                     continue # Skip to the next city/state
+
+                logger.debug(f"Processing {len(events)} events found for {search_description}.")
+
+                for event in events:
+                    event_name = event.get('name', '').lower()
+                    # Basic check if artist name is in event name
+                    if artist_name.lower() in event_name:
+                         # Extract venue, date, and URL
+                        venue_info = event.get('_embedded', {}).get('venues', [{}])[0]
+                        venue_name = venue_info.get('name', 'N/A')
+                        event_city = venue_info.get('city', {}).get('name', 'N/A')
+                        event_state = venue_info.get('state', {}).get('stateCode', '') # Get state code
+                        display_location = f"{event_city}, {event_state}" if event_state else event_city
 
 
-                            # Check if the event's city or state matches the searched location
-                            # This helps filter out events where the artist name matched but the location didn't 
-                            # (e.g., searching state=CA but event is in NV, but artist name matches)
-                            if not is_state_code and event_city.lower() != location.lower():
-                                continue # Skip if searching for a city and the event's city doesn't match
-                            if is_state_code and event_state.upper() != location.upper():
-                                continue # Skip if searching for a state and the event's state doesn't match
+                        # Check if the event's city or state matches the searched location
+                        # This helps filter out events where the artist name matched but the location didn't 
+                        # (e.g., searching state=CA but event is in NV, but artist name matches)
+                        if not len(location) == 2 and location.isalpha() and event_city.lower() != location.lower():
+                            continue # Skip if searching for a city and the event's city doesn't match
+                        if len(location) == 2 and location.isalpha() and event_state.upper() != location.upper():
+                            continue # Skip if searching for a state and the event's state doesn't match
 
 
-                            # Find the start date - handle potential missing keys gracefully
-                            start_info = event.get('dates', {}).get('start', {})
-                            local_date = start_info.get('localDate')
-                            
-                            if local_date:
-                                try:
-                                    # Attempt to parse the date
-                                    date_obj = datetime.strptime(local_date, '%Y-%m-%d')
-                                    formatted_date = date_obj.strftime('%B %d, %Y') # e.g., July 26, 2024
-                                except ValueError:
-                                    formatted_date = local_date # Use original string if parsing fails
-                            else:
-                                formatted_date = 'Date not specified'
+                        # Find the start date - handle potential missing keys gracefully
+                        start_info = event.get('dates', {}).get('start', {})
+                        local_date = start_info.get('localDate')
+                        
+                        if local_date:
+                            try:
+                                # Attempt to parse the date
+                                date_obj = datetime.strptime(local_date, '%Y-%m-%d')
+                                formatted_date = date_obj.strftime('%B %d, %Y') # e.g., July 26, 2024
+                            except ValueError:
+                                formatted_date = local_date # Use original string if parsing fails
+                        else:
+                            formatted_date = 'Date not specified'
 
-                            ticket_url = event.get('url', '#')
+                        ticket_url = event.get('url', '#')
 
-                            tour_dates.append({
-                                'artist': artist_name,
-                                'city': display_location, # Use combined city, state
-                                'venue': venue_name,
-                                'date': formatted_date,
-                                'ticket_url': ticket_url,
-                                'source': 'Ticketmaster',
-                                'source_url': ticket_url
-                            })
-                            logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
+                        tour_dates.append({
+                            'artist': artist_name,
+                            'city': display_location, # Use combined city, state
+                            'venue': venue_name,
+                            'date': formatted_date,
+                            'ticket_url': ticket_url,
+                            'source': 'Ticketmaster',
+                            'source_url': ticket_url
+                        })
+                        logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
 
                 processed_locations.add(location.lower()) # Mark this location as processed
 
