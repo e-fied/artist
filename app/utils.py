@@ -382,7 +382,7 @@ class TourScraper:
         This list may contain specific city names (e.g., "Los Angeles") or 2-letter state/province codes (e.g., "CA", "BC").
 
         Your task is to extract all tour dates mentioned in the text that match EITHER:
-        1. A specific city name listed by the user. (If Vancouver is listed, it will be Vancouver, BC, Canada NOT Vancouver, WA, USA)
+        1. A specific city name listed by the user. Or state/province code (If Vancouver is listed, it will be Vancouver, BC, Canada NOT Vancouver, WA, USA)
         2. Any city located within a state or province code listed by the user.
         3. Optionally, if the text explicitly mentions an event in a city immediately surrounding one of the user's specified cities, within the same Country, State, or Province (e.g., Anaheim near Los Angeles), include that too. Only include these nearby cities if clearly stated on the page.
 

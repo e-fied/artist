@@ -6,6 +6,8 @@ from datetime import datetime
 import json
 from queue import Queue
 import threading
+import schedule
+import pytz
 
 # Create a queue for log messages
 log_queue = Queue()
@@ -29,7 +31,33 @@ def index():
     artists = Artist.query.all()
     # Get latest logs for initial display
     latest_logs = file_logger.get_latest_logs(20)
-    return render_template('index.html', artists=artists, initial_logs=latest_logs)
+    
+    # Get schedule information
+    settings = Settings.get_settings()
+    times = [t.strip() for t in settings.check_frequency.split(',')]
+    
+    # Get next scheduled time
+    now = datetime.now()
+    schedule_times = []
+    for time_str in times:
+        hour, minute = map(int, time_str.split(':'))
+        schedule_time = now.replace(hour=hour, minute=minute, second=0, microsecond=0)
+        if schedule_time <= now:
+            # If the scheduled time is in the past for today, schedule it for tomorrow
+            schedule_time = schedule_time.replace(day=now.day + 1)
+        schedule_times.append(schedule_time)
+    
+    next_schedule = min(schedule_times) if schedule_times else None
+    
+    # Get last completed check time - use the most recent last_checked from artists
+    last_check = None
+    if artists:
+        checked_artists = [a for a in artists if a.last_checked]
+        if checked_artists:
+            last_check = max(a.last_checked for a in checked_artists)
+    
+    return render_template('index.html', artists=artists, initial_logs=latest_logs, 
+                          next_schedule=next_schedule, last_check=last_check)
 
 @app.route('/events')
 def events():
