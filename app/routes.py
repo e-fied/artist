@@ -27,28 +27,27 @@ def log_message(message, type='info'):
         logger.info(message)
 
 def format_date_for_display(dt):
-    """Format a datetime in a friendly format like 'March 3, 2023 9am'"""
+    """Format a datetime in a friendly format like 'March 3, 9:00 AM'"""
     if not dt:
         return None
     
     # Format the date part
     month = dt.strftime('%B')
     day = dt.day  # This removes leading zero
-    year = dt.year
     
-    # Format the time part
+    # Format the time part with proper capitalization for AM/PM
     hour = dt.hour % 12
     if hour == 0:
         hour = 12
-    am_pm = dt.strftime('%p').lower()
+    am_pm = dt.strftime('%p')  # Keep uppercase AM/PM
     
     if dt.minute == 0:
-        # If it's on the hour, don't show minutes
-        time_str = f"{hour}{am_pm}"
+        # If it's on the hour, still show as "9:00 AM" for consistency
+        time_str = f"{hour}:00 {am_pm}"
     else:
-        time_str = f"{hour}:{dt.minute:02d}{am_pm}"
+        time_str = f"{hour}:{dt.minute:02d} {am_pm}"
     
-    return f"{month} {day}, {year} {time_str}"
+    return f"{month} {day}, {time_str}"
 
 @app.route('/')
 def index():
