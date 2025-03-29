@@ -755,3 +755,30 @@ tr[data-artist-type="music"],
 .search-method i {
     font-size: 1.1rem;
 }
+
+/* Improved actions column */
+.actions-column {
+    min-width: 130px; /* Ensure enough space for buttons */
+}
+
+.actions-column .btn-group {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+.actions-column .btn {
+    padding: 0.4rem 0.6rem;
+    margin: 0 2px;
+    flex-grow: 1;
+}
+
+.actions-column .btn i {
+    font-size: 1.1rem;
+}
+
+/* Type badge styling */
+td .badge {
+    font-size: 0.85rem;
+    padding: 0.45rem 0.75rem;
+}
