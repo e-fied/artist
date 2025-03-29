@@ -1,9 +1,4 @@
 ---
-description: 
-globs: 
-alwaysApply: true
----
----
 description: Detailed project context for the Artist Tour Tracker application.
 globs: 
   - "app/**/*.py"
