@@ -112,7 +112,6 @@
                             <th>Cities</th>
                             <th class="sortable sort-asc" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-sort="date">Last Checked <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-sort="type">Type <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -168,8 +167,8 @@
                             <td>
                                 <span class="text-secondary small">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</span>
                             </td>
-                            <td>
-                                <div class="btn-group btn-group-sm d-flex justify-content-center">
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button" title="Check Now">
                                         <i class="bi bi-search"></i>
                                     </a>
