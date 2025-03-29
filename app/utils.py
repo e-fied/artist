@@ -148,7 +148,8 @@ class TicketmasterClient:
                                 'venue': venue_name,
                                 'date': formatted_date,
                                 'ticket_url': ticket_url,
-                                'source': 'Ticketmaster'
+                                'source': 'Ticketmaster',
+                                'source_url': ticket_url
                             })
                             logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
 
@@ -322,65 +323,93 @@ Only include dates in the specified cities. If no dates are found, return an emp
             logger.info(f"Skipping {artist.name} - on hold")
             return []
 
-        tour_dates = []
-        cities = [city.strip() for city in artist.cities.split(',')]
+        all_found_dates = [] # Store results from all sources here
+        cities = [city.strip() for city in artist.cities.split(',') if city.strip()]
         scrape_errors = []
         
-        # If Ticketmaster is enabled and available, try it first
+        # 1. Check Ticketmaster if enabled
         if artist.use_ticketmaster and self.ticketmaster:
             try:
                 logger.info(f"Checking Ticketmaster for {artist.name}")
-                tour_dates = self.ticketmaster.search_events(artist.name, cities)
-                logger.info(f"Found {len(tour_dates)} dates on Ticketmaster")
+                tm_dates = self.ticketmaster.search_events(artist.name, cities)
+                logger.info(f"Found {len(tm_dates)} dates on Ticketmaster for {artist.name}")
+                all_found_dates.extend(tm_dates) # Add Ticketmaster results
             except Exception as e:
-                error_msg = f"Error checking Ticketmaster: {str(e)}"
+                error_msg = f"Error checking Ticketmaster for {artist.name}: {str(e)}"
                 logger.error(error_msg)
                 scrape_errors.append({"url": "Ticketmaster API", "error": str(e)})
 
-        # If no Ticketmaster results or Ticketmaster is not enabled, try web scraping
-        if not tour_dates and not artist.use_ticketmaster:
-            urls = [url.strip() for url in artist.urls.split(',')]
-            logger.info(f"Checking URLs for {artist.name}: {urls}")
-            
-            for url in urls:
-                try:
-                    logger.info(f"Scraping URL: {url}")
-                    scraped_data = self.scrape_url(url)
-                    
-                    if scraped_data:
-                        logger.info(f"Successfully scraped data from {url}")
-                        logger.info("Sending data to LLM for processing...")
-                        dates = self.process_with_llm(scraped_data, artist)
-                        logger.info(f"LLM processing complete. Found {len(dates)} dates")
-                        # Add source URL to each tour date
-                        for date in dates:
-                            date['source_url'] = url
-                        tour_dates.extend(dates)
-                    else:
-                        error_msg = f"Failed to scrape data from {url}"
-                        logger.error(error_msg)
-                        scrape_errors.append({"url": url, "error": "Failed to scrape data"})
+        # 2. Check URLs if provided (regardless of Ticketmaster results)
+        if artist.urls: # Check if the urls field is not empty
+             urls = [url.strip() for url in artist.urls.split(',') if url.strip()]
+             if urls: # Proceed only if there are actual URLs after stripping/splitting
+                logger.info(f"Checking URLs for {artist.name}: {urls}")
+                
+                for url in urls:
+                    try:
+                        logger.info(f"Scraping URL: {url}")
+                        scraped_data = self.scrape_url(url)
                         
-                except Exception as e:
-                    error_msg = f"Error processing {url}: {str(e)}"
-                    logger.error(error_msg)
-                    scrape_errors.append({"url": url, "error": str(e)})
+                        if scraped_data:
+                            logger.info(f"Successfully scraped data from {url}")
+                            logger.info(f"Sending data to LLM for processing for {artist.name}...")
+                            llm_dates = self.process_with_llm(scraped_data, artist)
+                            logger.info(f"LLM processing complete for {artist.name}. Found {len(llm_dates)} dates from {url}")
+                            # Add source URL to each tour date from LLM
+                            for date in llm_dates:
+                                date['source_url'] = url
+                                date['source'] = 'Web Scrape/LLM' # Add source type
+                            all_found_dates.extend(llm_dates) # Add LLM results
+                        else:
+                            error_msg = f"Failed to scrape data from {url} for {artist.name}"
+                            logger.warning(error_msg) # Use warning for failed scrapes unless it's an exception
+                            scrape_errors.append({"url": url, "error": "Failed to scrape data"})
+                            
+                    except Exception as e:
+                        error_msg = f"Error processing {url} for {artist.name}: {str(e)}"
+                        logger.error(error_msg)
+                        scrape_errors.append({"url": url, "error": str(e)})
 
-        # Update last_checked timestamp with Vancouver time
-        artist.last_checked = datetime.now(vancouver_tz)
-        db.session.commit()
-        
-        # Send error notifications if any
-        if scrape_errors:
-            notifier = TelegramNotifier()
-            error_message = f"⚠️ <b>Scraping errors for {artist.name}</b>\n\n"
-            for error in scrape_errors:
-                error_message += f"🔗 <a href='{error['url']}'>{error['url']}</a>\n"
-                error_message += f"❌ Error: {error['error']}\n\n"
-            notifier.send_message(error_message)
-        
-        logger.info(f"Check complete for {artist.name}. Found {len(tour_dates)} total tour dates")
-        return tour_dates
+        # 3. De-duplicate combined results
+        # Use a more robust key for deduplication: (artist, lowercase venue, date, lowercase city)
+        unique_dates = []
+        seen_events = set()
+        for date in all_found_dates:
+            # Normalize key components
+            venue_key = date.get('venue', 'N/A').lower()
+            date_key = date.get('date', 'N/A') # Assume date format is consistent for duplicates
+            city_key = date.get('city', 'N/A').lower()
+            artist_key = date.get('artist', 'N/A').lower()
+            
+            event_key = (artist_key, venue_key, date_key, city_key)
+            
+            if event_key not in seen_events:
+                unique_dates.append(date)
+                seen_events.add(event_key)
+            else:
+                logger.debug(f"Duplicate event skipped: {event_key}")
+
+        # Update last_checked timestamp
+        try:
+            # Ensure the timezone object is available
+            vancouver_tz = pytz.timezone('America/Vancouver')
+            artist.last_checked = datetime.now(vancouver_tz)
+            db.session.commit()
+            logger.info(f"Updated last_checked for {artist.name}")
+        except NameError:
+             logger.error("Timezone 'America/Vancouver' not defined. Cannot set last_checked.")
+             # Handle case where vancouver_tz might not be defined in this scope
+             # You might need to import pytz and define vancouver_tz within this method or pass it
+        except Exception as e:
+            logger.error(f"Failed to update last_checked for {artist.name}: {e}")
+            db.session.rollback() # Rollback if commit fails
+
+
+        logger.info(f"Check complete for {artist.name}. Found {len(unique_dates)} unique total tour dates after deduplication.")
+
+        # Optionally include scrape errors in the return or handle them differently
+        # For now, just returning the unique dates
+        return unique_dates
 
 def check_all_artists():
     notifier = TelegramNotifier()
