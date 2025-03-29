@@ -66,7 +66,9 @@ def add_artist():
         cities = request.form['cities']
         on_hold = 'on_hold' in request.form
         use_ticketmaster = 'use_ticketmaster' in request.form
-        artist = Artist(name=name, urls=urls, cities=cities, on_hold=on_hold, use_ticketmaster=use_ticketmaster)
+        artist_type = request.form.get('artist_type', 'music')
+        artist = Artist(name=name, urls=urls, cities=cities, on_hold=on_hold, 
+                        use_ticketmaster=use_ticketmaster, artist_type=artist_type)
         db.session.add(artist)
         db.session.commit()
         log_message(f'Artist "{name}" added successfully!', 'success')
@@ -84,6 +86,7 @@ def edit_artist(id):
         artist.cities = request.form['cities']
         artist.on_hold = 'on_hold' in request.form
         artist.use_ticketmaster = 'use_ticketmaster' in request.form
+        artist.artist_type = request.form.get('artist_type', 'music')
         db.session.commit()
         log_message(f'Artist "{old_name}" updated to "{artist.name}"', 'success')
         flash('Artist updated successfully!', 'success')

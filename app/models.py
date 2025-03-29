@@ -9,6 +9,7 @@ class Artist(db.Model):
     on_hold = db.Column(db.Boolean, default=False)
     last_checked = db.Column(db.DateTime)
     use_ticketmaster = db.Column(db.Boolean, default=True)  # Enable Ticketmaster by default
+    artist_type = db.Column(db.String(20), default='music')  # 'music' or 'comedy'
 
 class Settings(db.Model):
     id = db.Column(db.Integer, primary_key=True)

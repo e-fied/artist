@@ -27,7 +27,7 @@
                 <div class="mobile-sort-controls">
                     <select id="mobile-sort-field" class="form-select form-select-sm">
                         <option value="name">Sort by: Name</option>
-                        <option value="status">Sort by: Status</option>
+                        <option value="status" selected>Sort by: Status</option>
                         <option value="date">Sort by: Last Checked</option>
                     </select>
                     <button id="mobile-sort-direction" class="sort-direction">
@@ -44,7 +44,11 @@
                          data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center">
+                                {% if artist.artist_type == 'comedy' %}
+                                <i class="bi bi-emoji-laughing me-2 text-primary"></i>
+                                {% else %}
                                 <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                                {% endif %}
                                 <h5 class="mb-0">{{ artist.name }}</h5>
                             </div>
                             <div class="status-badge">
@@ -56,10 +60,20 @@
                             </div>
                         </div>
                         
-                        <div class="location-badges mb-2">
-                            {% for city in artist.cities.split(',') %}
-                            <span class="badge bg-secondary me-1 mb-1">{{ city.strip() }}</span>
-                            {% endfor %}
+                        <div class="d-flex align-items-center mb-2">
+                            <div class="search-methods me-2">
+                                {% if artist.use_ticketmaster %}
+                                <span class="badge search-method" title="Ticketmaster API"><i class="bi bi-ticket-perforated"></i></span>
+                                {% endif %}
+                                {% if artist.urls %}
+                                <span class="badge search-method" title="Web Scraping"><i class="bi bi-globe"></i></span>
+                                {% endif %}
+                            </div>
+                            <div class="location-badges">
+                                {% for city in artist.cities.split(',') %}
+                                <span class="badge bg-secondary me-1 mb-1">{{ city.strip() }}</span>
+                                {% endfor %}
+                            </div>
                         </div>
                         
                         <div class="text-secondary small mb-3">
@@ -92,7 +106,7 @@
                         <tr>
                             <th class="sortable" data-sort="name">Name <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th>Cities</th>
-                            <th class="sortable" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable sort-asc" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-sort="date">Last Checked <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="text-center">Actions</th>
                         </tr>
@@ -105,15 +119,29 @@
                             data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
                             <td>
                                 <div class="d-flex align-items-center">
+                                    {% if artist.artist_type == 'comedy' %}
+                                    <i class="bi bi-emoji-laughing me-2 text-primary"></i>
+                                    {% else %}
                                     <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                                    {% endif %}
                                     <span class="artist-name">{{ artist.name }}</span>
                                 </div>
                             </td>
                             <td>
-                                <div class="d-flex flex-wrap gap-1">
-                                    {% for city in artist.cities.split(',') %}
-                                    <span class="badge bg-secondary">{{ city.strip() }}</span>
-                                    {% endfor %}
+                                <div class="d-flex align-items-center">
+                                    <div class="search-methods me-2">
+                                        {% if artist.use_ticketmaster %}
+                                        <span class="badge search-method" title="Ticketmaster API"><i class="bi bi-ticket-perforated"></i></span>
+                                        {% endif %}
+                                        {% if artist.urls %}
+                                        <span class="badge search-method" title="Web Scraping"><i class="bi bi-globe"></i></span>
+                                        {% endif %}
+                                    </div>
+                                    <div class="d-flex flex-wrap gap-1">
+                                        {% for city in artist.cities.split(',') %}
+                                        <span class="badge bg-secondary">{{ city.strip() }}</span>
+                                        {% endfor %}
+                                    </div>
                                 </div>
                             </td>
                             <td>
@@ -188,7 +216,7 @@
 <script>
 let loadingModal = null;
 let eventSource = null;
-let currentSort = { column: 'name', direction: 'asc' };
+let currentSort = { column: 'status', direction: 'asc' };
 
 document.addEventListener('DOMContentLoaded', function() {
     loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
@@ -311,8 +339,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     
-    // Initial sort (by name ascending)
-    sortTable('name', 'asc');
+    // Initial sort (by status ascending)
+    sortTable('status', 'asc');
 });
 
 function sortTable(column, direction) {
