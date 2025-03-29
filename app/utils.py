@@ -263,23 +263,61 @@ class TourScraper:
         except ValueError:
             logger.warning("Ticketmaster client initialization failed - will only use web scraping")
 
-    def scrape_url(self, url: str) -> Optional[Dict]:
+    def scrape_url(self, url: str) -> Dict:
+        """
+        Scrapes a single URL using Firecrawl.
+
+        Returns:
+            A dictionary with:
+            - success (bool): True if scraping was successful AND content was retrieved.
+            - url (str): The URL that was scraped.
+            - content (Optional[str]): The scraped page content (markdown). None if failed or no content.
+            - error (Optional[str]): An error message if scraping failed or content was empty.
+        """
+        result = {"success": False, "url": url, "content": None, "error": None}
+
+        if not self.firecrawl_api_key:
+            result["error"] = "Firecrawl API key not configured."
+            logger.error(result["error"])
+            return result
+
         try:
             logger.info(f"Using Firecrawl to scrape: {url}")
-            response = self.firecrawl.scrape_url(url=url, params={
-                'formats': ['markdown']
-            })
-            
-            if response:
-                logger.info("Firecrawl scrape successful")
-                return {
-                    'url': url,
-                    'content': response.get('markdown', '')
-                }
-            return None
+            # Increase timeout if needed, e.g., pageOptions={'timeout': 60000} for 60s
+            # Set includeHtml to False if you only need markdown content
+            scraped_data = self.firecrawl.scrape(
+                url=url,
+                params={'pageOptions': {'timeout': 45000, 'includeHtml': False}}
+            )
+
+            # Check Firecrawl's explicit success flag or data presence
+            if not scraped_data or not scraped_data.get('success', False):
+                 # Firecrawl itself reported an error or returned empty
+                 error_detail = scraped_data.get('error', 'Unknown Firecrawl error or no data') if scraped_data else 'No data returned by Firecrawl'
+                 result["error"] = f"Firecrawl scrape failed: {error_detail}"
+                 logger.error(f"{result['error']} for url: {url}")
+                 return result
+
+            # Check if markdown content exists (Firecrawl might succeed but return no content)
+            markdown_content = scraped_data.get('markdown')
+            if not markdown_content:
+                result["error"] = "Firecrawl scrape successful, but no markdown content found."
+                logger.warning(f"{result['error']} for url: {url}")
+                # Keep success=False because we need content for the LLM
+                return result
+
+            # Success! We have content.
+            result["success"] = True
+            result["content"] = markdown_content
+            result["url"] = url # Include URL for context, though already present
+            logger.info(f"Firecrawl scrape successful for: {url}")
+            return result
+
         except Exception as e:
-            logger.error(f"Firecrawl scraping error: {str(e)}")
-            return None
+            # Catch exceptions during the scrape call (network issues, timeouts, etc.)
+            result["error"] = f"Exception during Firecrawl scrape: {str(e)}"
+            logger.error(f"{result['error']} for url: {url}", exc_info=True) # Log traceback for exceptions
+            return result
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         """Processes scraped data with the LLM to find tour dates."""
@@ -390,27 +428,29 @@ class TourScraper:
                 for url in urls:
                     try:
                         logger.info(f"Scraping URL: {url}")
-                        scraped_data = self.scrape_url(url)
+                        scraped_result = self.scrape_url(url)
                         
-                        if scraped_data and scraped_data.get('content'): # Check if content exists
-                            logger.info(f"Successfully scraped data from {url}")
-                            logger.info(f"Sending data to LLM for processing for {artist.name}...")
-                            llm_dates = self.process_with_llm(scraped_data, artist)
-                            logger.info(f"LLM processing complete for {artist.name}. Found {len(llm_dates)} dates from {url}")
-                            # Add source URL and type to each tour date from LLM
-                            for date in llm_dates:
-                                date['source_url'] = url
-                                date['source'] = 'Web Scrape/LLM' # Add source type
-                            all_found_dates.extend(llm_dates) # Add LLM results
-                        # Handle cases where scrape_url returned data but no content, or returned None
-                        elif scraped_data and not scraped_data.get('content'):
-                             error_msg = f"Scraped data from {url} but found no content."
-                             logger.warning(f"{error_msg} for {artist.name}")
-                             scrape_error_messages.append(f"• {url}: Scraped but no content found.")
-                        else: # scraped_data is None
-                            error_msg = f"Failed to scrape data from {url}"
-                            logger.warning(f"{error_msg} for {artist.name}") # Use warning for failed scrapes unless it's an exception
-                            scrape_error_messages.append(f"• {url}: Failed to scrape data.")
+                        if scraped_result.get("success") and scraped_result.get("content"):
+                            # Scrape successful, proceed to LLM
+                            try:
+                                logger.info(f"Sending scraped data from {url} to LLM for {artist.name}...")
+                                # Pass the whole result dict for context if needed, or just content
+                                llm_dates = self.process_with_llm(scraped_result, artist)
+                                logger.info(f"LLM processing complete for {artist.name}. Found {len(llm_dates)} dates from {url}")
+                                for date in llm_dates:
+                                    date['source_url'] = url
+                                    date['source'] = 'Web Scrape/LLM'
+                                all_found_dates.extend(llm_dates)
+                            except Exception as e:
+                                # Catch errors specifically during LLM processing for this URL
+                                error_msg = f"Error processing LLM for {url}: {str(e)}"
+                                logger.error(f"{error_msg} for {artist.name}", exc_info=True)
+                                scrape_error_messages.append(f"• {url}: LLM Processing Failed - {str(e)}")
+                        else:
+                            # Scrape failed or returned no content, add specific error from scrape_url
+                            error_msg = scraped_result.get("error", "Unknown scraping error")
+                            logger.warning(f"Failed to get usable content from {url} for {artist.name}: {error_msg}")
+                            scrape_error_messages.append(f"• {url}: {error_msg}")
 
                     except Exception as e:
                         # Catch exceptions during scraping OR LLM processing for this URL
