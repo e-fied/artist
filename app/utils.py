@@ -100,9 +100,8 @@ class TicketmasterClient:
                 response = requests.get(self.base_url, params=params)
                 response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
 
-                # --- ADD THIS LOGGING ---
+                # Log raw response for debugging
                 logger.debug(f"Raw Ticketmaster API response for {search_description}: {response.text}")
-                # ------------------------
 
                 data = response.json()
 
@@ -126,19 +125,29 @@ class TicketmasterClient:
                     country_code = venue_info.get('country', {}).get('countryCode', '')
 
                     # --- Normalize names for comparison ---
-                    # Remove common punctuation and make lowercase
                     normalized_artist_name = ''.join(c for c in artist_name if c.isalnum() or c.isspace()).lower().strip()
                     normalized_event_name = ''.join(c for c in event_name if c.isalnum() or c.isspace()).lower().strip()
-
-                    # --- Use normalized names for the check ---
-                    # Check if the core artist name is in the event name
-                    # Split artist name into words in case event name has extra words (e.g., "Artist Name presents...")
+                    
+                    # Get the attractions to check if our artist is in the lineup
+                    attractions = event.get('_embedded', {}).get('attractions', [])
+                    attraction_names = [attraction.get('name', '').lower() for attraction in attractions]
+                    
+                    # Check if artist is in the lineup (either in event name or attractions list)
+                    is_artist_match = False
+                    
+                    # Check 1: Event name contains artist name (existing logic)
                     artist_name_words = normalized_artist_name.split()
                     if all(word in normalized_event_name for word in artist_name_words):
-                    # Original simpler check (might be too strict):
-                    # if normalized_artist_name in normalized_event_name:
-                    # ---------------------------------------
-
+                        is_artist_match = True
+                        logger.debug(f"Artist matched via event name: '{normalized_artist_name}' found in '{normalized_event_name}'")
+                    
+                    # Check 2: Artist is listed in attractions
+                    elif any(normalized_artist_name in attraction.lower() for attraction in attraction_names):
+                        is_artist_match = True
+                        logger.debug(f"Artist matched via attractions list: '{normalized_artist_name}' found in {attraction_names}")
+                    
+                    # If we have a match, add the tour date
+                    if is_artist_match:
                         # Location Matching (Combine city and state/province)
                         display_location_parts = [city_name, state_code if state_code else state_name]
                         display_location = ", ".join(filter(None, display_location_parts)) # Filter out empty parts
@@ -169,7 +178,7 @@ class TicketmasterClient:
                         })
                         logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
                     else: # Log skipped events for debugging
-                        logger.debug(f"Skipping event: Name '{event_name}' did not sufficiently match artist '{artist_name}' after normalization ('{normalized_artist_name}' vs '{normalized_event_name}')")
+                        logger.debug(f"Skipping event: Name '{event_name}' did not match artist '{artist_name}' - Event name: '{normalized_event_name}', Attractions: {attraction_names}")
 
                 processed_locations.add(location.lower()) # Mark this location as processed
 
