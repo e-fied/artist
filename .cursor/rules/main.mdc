@@ -3,51 +3,122 @@ description:
 globs: 
 alwaysApply: true
 ---
-# Artist Tour Tracker Project Rules
+---
+description: Detailed project context for the Artist Tour Tracker application.
+globs: 
+  - "app/**/*.py"
+  - "app/templates/**/*.html"
+  - "docker-compose.yml"
+  - "*.env*"
+alwaysApply: true
+---
+# Artist Tour Tracker Project Rules & Context
 
-## General Rules
+This document provides detailed context for the Artist Tour Tracker project, intended to help understand its structure, functionality, and key components.
 
-1. **Language and Framework**:
-   - Use Python 3.11 or later.
-   - Use Flask for the web application.
-   - Use SQLAlchemy for database operations with SQLite.
+## 1. Core Goal
 
-2. **Coding Standards**:
-   - Adhere to PEP 8 guidelines.
-   - Use descriptive variable names.
-   - Comment code where necessary for clarity.
+The primary purpose of this application is to automatically monitor artist websites and the Ticketmaster API for new tour dates announced in specific cities or regions (states/provinces) defined by the user. When new dates matching the criteria are found, it sends a notification via Telegram.
 
-3. **Libraries and Dependencies**:
-   - Use `requests` for HTTP requests.
-   - Use `schedule` for scheduling tasks.
-   - Use `python-telegrambot` for Telegram notifications.
+## 2. Technology Stack
 
-4. **Error Handling**:
-   - Implement try-except blocks to handle exceptions.
-   - Log errors using a logging mechanism.
+*   **Language**: Python (Version 3.11 or later recommended).
+*   **Web Framework**: Flask. Used for handling web requests, rendering HTML pages, and defining API endpoints (like the manual check).
+*   **Database**: SQLite. A simple file-based database.
+*   **ORM**: SQLAlchemy. Used to interact with the SQLite database using Python objects (Models) instead of writing raw SQL queries. This makes database operations more Pythonic.
+*   **Frontend Styling**: Bootstrap (inferred from HTML template structure). Used for basic styling of the web interface.
 
-5. **Security**:
-   - Do not hardcode sensitive information.
-   - Use environment variables for secrets.
+## 3. Key Libraries & Services
 
-6. **Testing**:
-   - Consider writing unit tests for critical components.
+*   **`requests`**: Standard Python library for making HTTP requests (e.g., to the Ticketmaster API).
+*   **`schedule`**: Used for scheduling the periodic checks for tour dates (running `check_all_artists` function twice daily).
+*   **`python-telegram-bot`**: Used to interact with the Telegram Bot API for sending notifications. Requires a Telegram Bot Token and Chat ID.
+*   **`Ticketmaster API`**: External service used to search for events based on artist name and location. Requires an API key. This is one of the two primary methods for finding dates.
+*   **`Firecrawl`**: External service used to scrape websites specified in the artist's URL list. It fetches the content of the web pages. Requires an API key.
+*   **`OpenAI API`**: External service (specifically, a Large Language Model like GPT) used to process the text content scraped by Firecrawl. Its goal is to understand the scraped text and extract structured tour date information (date, city, venue). Requires an API key.
+*   **`BeautifulSoup4`** (Likely used, based on standard scraping practices, though not fully shown): A Python library often used after scraping to parse HTML content and extract specific data points, potentially used before or alongside the LLM processing.
 
-## Project-Specific Instructions
+## 4. Core Functionality Explained
 
-1. **Artist Management**:
-   - Manage artists, their URLs, and cities to track.
-   - Provide a web interface to add, edit, and manage artists.
+*   **Artist Management**:
+    *   Users can add, edit, and view artists via a web interface (Flask routes defined in `app/routes.py`, using templates in `app/templates/`).
+    *   Each artist has:
+        *   `name`: The artist's name.
+        *   `cities`: A comma-separated string of locations to track (e.g., "New York, Los Angeles, CA, TX, BC"). Can include full city names or 2-letter state/province codes. The application distinguishes between these for filtering Ticketmaster results accurately.
+        *   `use_ticketmaster`: A boolean flag (checkbox). If checked, the app will *primarily* use the Ticketmaster API to find tour dates for this artist.
+        *   `urls` (Assumed, based on scraping logic): A comma-separated list of website URLs to scrape if `use_ticketmaster` is *not* checked.
+        *   `on_hold`: A boolean flag to temporarily pause checking for an artist without deleting them.
+*   **Tour Date Checking (The core logic in `app/utils.py` -> `TourScraper.check_artist`)**:
+    *   **Method Selection**: The check process begins by looking at the `use_ticketmaster` flag for the artist.
+    *   **Ticketmaster Path (`use_ticketmaster` = True)**:
+        *   The `TicketmasterClient` class queries the Ticketmaster Discovery API.
+        *   It searches for events matching the `artist_name`.
+        *   It iterates through the `cities` provided for the artist.
+            *   If a city is a 2-letter code (like "CA" or "TX"), it searches Ticketmaster using the `stateCode` parameter.
+            *   If it's a full city name, it searches using the `city` parameter.
+        *   It filters the results to ensure the event name contains the artist's name and the event's location (city or state) matches the specific location being queried.
+        *   It extracts relevant details: Date, Venue, City, State, Ticket URL.
+        *   Results are formatted and returned.
+    *   **Scraping Path (`use_ticketmaster` = False)**:
+        *   The application iterates through the URLs associated with the artist (not shown in detail, but implied).
+        *   For each URL, it uses **Firecrawl** to scrape the website's content.
+        *   The scraped content (likely Markdown or plain text) is then sent to the **OpenAI LLM**.
+        *   A specific prompt instructs the LLM to find tour dates within the provided text that match the artist's specified `cities` list. The LLM is asked to return structured data (e.g., JSON containing date, city, venue).
+        *   The application processes the LLM's response to extract the tour date information. (Potential use of BeautifulSoup might occur before or after LLM processing to clean/isolate relevant HTML sections).
+        *   Results are formatted and returned.
+    *   **Duplicate Prevention**: The application checks if a found tour date (based on artist, city, venue, date) has already been seen and notified recently to avoid sending repeated notifications for the same event. (Logic likely involves checking against previously stored dates, potentially in the database or memory, though not fully shown).
+*   **Scheduling**:
+    *   The `schedule_checks` function in `app/utils.py` uses the `schedule` library.
+    *   It's configured (likely in `app.py` or the main execution block) to run `check_all_artists` twice daily (e.g., 9 AM and 9 PM).
+    *   `check_all_artists` iterates through all artists in the database that are *not* `on_hold` and runs `TourScraper.check_artist` for each.
+*   **Manual Trigger**:
+    *   The `/check_artist/<id>` route in `app/routes.py` allows a user to trigger a check for a specific artist immediately via the web UI.
+*   **Notifications**:
+    *   The `TelegramNotifier` class in `app/utils.py` handles sending messages.
+    *   It uses the `python-telegram-bot` library.
+    *   Messages are formatted using HTML for better readability (bolding, links).
+    *   Notifications are sent by both the scheduled task (`check_all_artists`) and the manual trigger (`check_artist_route`) if new dates are found.
+    *   The message includes the source (Ticketmaster or Scraped URL) and a direct link to tickets if available.
 
-2. **Scraping and Processing**:
-   - Use Firecrawl to scrape artist websites.
-   - Process scraped data with an LLM to find tour dates in specified cities.
+## 5. Configuration
 
-3. **Notifications**:
-   - Send Telegram notifications when tour dates are found.
+*   **Environment Variables**: Critical settings and API keys are managed via environment variables. These are typically loaded from an `.env` file (or set directly in the deployment environment).
+*   **Required Keys**:
+    *   `TICKETMASTER_API_KEY`
+    *   `TELEGRAM_BOT_TOKEN`
+    *   `TELEGRAM_CHAT_ID`
+    *   `OPENAI_API_KEY`
+    *   `FIRECRAWL_API_KEY` (or similar name, check implementation)
+*   **`.env` File**: A file named `.env` in the project root (or specified path) is the standard way to provide these variables during local development. The `docker-compose.yml` maps an external `artist.env` file.
 
-4. **Scheduling**:
-   - Schedule checks twice a day (e.g., 9 AM and 9 PM).
+## 6. Code Structure (Simplified)
 
-5. **Database**:
-   - Use SQLite for storing artist data and settings.
+*   **`app.py`** (or similar main file): Initializes the Flask application, database, scheduler, and runs the web server.
+*   **`app/routes.py`**: Defines the Flask routes (web pages and actions like `/`, `/add`, `/edit`, `/check_artist`). Handles requests, processes forms, and renders HTML templates.
+*   **`app/utils.py`**: Contains core logic classes and functions:
+    *   `TicketmasterClient`: Interacts with the Ticketmaster API.
+    *   `TelegramNotifier`: Sends Telegram messages.
+    *   `TourScraper`: Orchestrates the checking process (calling Ticketmaster or Firecrawl/LLM). Contains `check_artist`.
+    *   `schedule_checks`, `check_all_artists`: Handle the scheduled execution.
+    *   Helper functions (e.g., logging).
+*   **`app/models.py`** (Assumed): Defines the SQLAlchemy database models (e.g., `Artist` class mapping to the `artists` table).
+*   **`app/templates/`**: Contains HTML files used by Flask to render the web pages (e.g., `base.html`, `index.html`, `add_artist.html`, `edit_artist.html`).
+*   **`data/`**: Directory where the SQLite database file (`artists.db`) is stored (based on `docker-compose.yml`).
+*   **`docker-compose.yml`**: Defines how to build and run the application using Docker, including port mapping, volume mounts (for persistent data), and environment file location. Configured for Unraid deployment.
+*   **`requirements.txt`**: Lists all the Python package dependencies needed for the project.
+
+## 7. Error Handling & Logging
+
+*   Uses standard Python `try...except` blocks to catch potential errors during API calls, scraping, or database operations.
+*   Uses the built-in `logging` module to record information, warnings, and errors during execution. Logs are typically output to the console or a file, depending on configuration.
+
+## 8. Beginner Notes & Potential Gotchas
+
+*   **API Keys are Essential**: The application *will not* function correctly without valid API keys for Ticketmaster, Telegram, OpenAI, and Firecrawl set as environment variables.
+*   **Ticketmaster vs. Scraper**: Understand that these are two distinct methods. Ticketmaster is generally more reliable for structured data if the event is listed there. Scraping + LLM is more flexible for artists' own websites or less common platforms but relies on the website structure not changing drastically and the LLM's ability to interpret the content.
+*   **Location Input**: Be precise with city names. State/Province codes *must* be the standard 2-letter codes (e.g., 'CA', 'NY', 'TX', 'ON', 'BC'). Mixing full names and codes in the comma-separated list is supported.
+*   **Check Timing**: Manual checks triggered via the web UI might take some time (10-30 seconds or more) depending on the number of URLs to scrape or API responsiveness. Scheduled checks run in the background.
+*   **LLM Costs**: Using the OpenAI API incurs costs based on usage. Scraping many sites frequently could increase these costs.
+*   **Scraping Robustness**: Web scraping can be fragile. If an artist redesigns their website, the scraping part (and potentially the LLM interpretation) might fail until the logic is adjusted. Firecrawl helps, but fundamental structure changes can still break things.
+*   **Database Location**: The SQLite database is stored in the `data` directory *inside* the container, which is mapped to `/mnt/user/appdata/artist/data` on the host system by Docker Compose. Back up this location if needed.
+*   **Telegram Setup**: You need to create a Telegram Bot and get its token, then find your user/group Chat ID to receive notifications.
