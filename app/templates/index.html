@@ -29,6 +29,7 @@
                         <option value="name">Sort by: Name</option>
                         <option value="status" selected>Sort by: Status</option>
                         <option value="date">Sort by: Last Checked</option>
+                        <option value="type">Sort by: Artist Type</option>
                     </select>
                     <button id="mobile-sort-direction" class="sort-direction">
                         <i class="bi bi-arrow-up"></i>
@@ -41,14 +42,17 @@
                          data-artist-id="{{ artist.id }}" 
                          data-name="{{ artist.name.lower() }}" 
                          data-status="{{ 'onhold' if artist.on_hold else 'active' }}"
+                         data-artist-type="{{ artist.artist_type }}"
                          data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div class="d-flex align-items-center">
-                                {% if artist.artist_type == 'comedy' %}
-                                <i class="bi bi-emoji-laughing me-2 text-primary"></i>
-                                {% else %}
-                                <i class="bi bi-music-note-beamed me-2 text-primary"></i>
-                                {% endif %}
+                                <div class="artist-type-icon">
+                                    {% if artist.artist_type == 'comedy' %}
+                                    <i class="bi bi-emoji-laughing text-primary"></i>
+                                    {% else %}
+                                    <i class="bi bi-music-note-beamed text-primary"></i>
+                                    {% endif %}
+                                </div>
                                 <h5 class="mb-0">{{ artist.name }}</h5>
                             </div>
                             <div class="status-badge">
@@ -108,6 +112,7 @@
                             <th>Cities</th>
                             <th class="sortable sort-asc" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-sort="date">Last Checked <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-sort="type">Type <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -116,14 +121,17 @@
                         <tr data-artist-id="{{ artist.id }}" 
                             data-name="{{ artist.name.lower() }}" 
                             data-status="{{ 'onhold' if artist.on_hold else 'active' }}"
+                            data-artist-type="{{ artist.artist_type }}"
                             data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
                             <td>
                                 <div class="d-flex align-items-center">
-                                    {% if artist.artist_type == 'comedy' %}
-                                    <i class="bi bi-emoji-laughing me-2 text-primary"></i>
-                                    {% else %}
-                                    <i class="bi bi-music-note-beamed me-2 text-primary"></i>
-                                    {% endif %}
+                                    <div class="artist-type-icon">
+                                        {% if artist.artist_type == 'comedy' %}
+                                        <i class="bi bi-emoji-laughing text-primary"></i>
+                                        {% else %}
+                                        <i class="bi bi-music-note-beamed text-primary"></i>
+                                        {% endif %}
+                                    </div>
                                     <span class="artist-name">{{ artist.name }}</span>
                                 </div>
                             </td>
@@ -292,151 +300,161 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Handle desktop sorting
+    // Apply initial sorting
+    sortArtists('status', 'asc');
+    
+    // Desktop Table Sorting
     const sortableHeaders = document.querySelectorAll('.sortable');
     sortableHeaders.forEach(header => {
         header.addEventListener('click', function() {
-            const column = this.dataset.sort;
-            const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
+            const column = this.getAttribute('data-sort');
+            const currentDirection = this.classList.contains('sort-asc') ? 'asc' : 
+                                    this.classList.contains('sort-desc') ? 'desc' : '';
             
-            // Update sort state
-            currentSort = { column, direction };
+            // Toggle or set direction
+            let newDirection = 'asc';
+            if (currentDirection === 'asc') {
+                newDirection = 'desc';
+            } else if (currentDirection === 'desc') {
+                newDirection = 'asc';
+            }
             
-            // Update visual indicators
-            document.querySelectorAll('.sortable').forEach(th => {
-                th.classList.remove('sort-asc', 'sort-desc');
+            // Update headers
+            sortableHeaders.forEach(h => {
+                h.classList.remove('sort-asc', 'sort-desc');
             });
-            this.classList.add(`sort-${direction}`);
             
-            // Sort the table
-            sortTable(column, direction);
+            this.classList.add(`sort-${newDirection}`);
+            
+            // Sort artists
+            sortArtists(column, newDirection);
         });
     });
     
-    // Handle mobile sorting
+    // Mobile Sorting
     const mobileSortField = document.getElementById('mobile-sort-field');
     const mobileSortDirection = document.getElementById('mobile-sort-direction');
     
-    if (mobileSortField && mobileSortDirection) {
-        // Initial sorting for mobile
-        sortMobileCards('name', 'asc');
-        
-        // Handle sort field change
-        mobileSortField.addEventListener('change', function() {
-            const column = this.value;
-            sortMobileCards(column, currentSort.direction);
-            currentSort.column = column;
-        });
-        
-        // Handle sort direction toggle
-        mobileSortDirection.addEventListener('click', function() {
-            const newDirection = currentSort.direction === 'asc' ? 'desc' : 'asc';
-            sortMobileCards(currentSort.column, newDirection);
-            currentSort.direction = newDirection;
-            
-            // Update direction button UI
-            this.classList.toggle('desc', newDirection === 'desc');
-        });
-    }
+    mobileSortField.addEventListener('change', function() {
+        const column = this.value;
+        const direction = mobileSortDirection.classList.contains('desc') ? 'desc' : 'asc';
+        sortArtists(column, direction);
+    });
     
-    // Initial sort (by status ascending)
-    sortTable('status', 'asc');
+    mobileSortDirection.addEventListener('click', function() {
+        const isDesc = this.classList.toggle('desc');
+        const column = mobileSortField.value;
+        sortArtists(column, isDesc ? 'desc' : 'asc');
+    });
+    
+    // Sorting function
+    function sortArtists(column, direction) {
+        currentSort = { column, direction };
+        
+        // Sort artists on desktop
+        const artistsTable = document.getElementById('artists-table');
+        if (artistsTable) {
+            const tbody = artistsTable.querySelector('tbody');
+            const rows = Array.from(tbody.querySelectorAll('tr'));
+            
+            // Sort the rows
+            rows.sort((a, b) => {
+                let valA, valB;
+                
+                if (column === 'name') {
+                    valA = a.getAttribute('data-name');
+                    valB = b.getAttribute('data-name');
+                } else if (column === 'status') {
+                    valA = a.getAttribute('data-status');
+                    valB = b.getAttribute('data-status');
+                    // Special handling: "active" comes before "onhold"
+                    if (direction === 'asc') {
+                        if (valA === 'active' && valB === 'onhold') return -1;
+                        if (valA === 'onhold' && valB === 'active') return 1;
+                    } else {
+                        if (valA === 'active' && valB === 'onhold') return 1;
+                        if (valA === 'onhold' && valB === 'active') return -1;
+                    }
+                } else if (column === 'date') {
+                    valA = a.getAttribute('data-date');
+                    valB = b.getAttribute('data-date');
+                } else if (column === 'type') {
+                    valA = a.getAttribute('data-artist-type');
+                    valB = b.getAttribute('data-artist-type');
+                    // Special handling: "music" comes before "comedy" by default
+                    if (direction === 'asc') {
+                        if (valA === 'music' && valB === 'comedy') return -1;
+                        if (valA === 'comedy' && valB === 'music') return 1;
+                    } else {
+                        if (valA === 'music' && valB === 'comedy') return 1;
+                        if (valA === 'comedy' && valB === 'music') return -1;
+                    }
+                }
+                
+                // Compare values
+                if (direction === 'asc') {
+                    return valA.localeCompare(valB);
+                } else {
+                    return valB.localeCompare(valA);
+                }
+            });
+            
+            // Reorder the rows
+            rows.forEach(row => tbody.appendChild(row));
+        }
+        
+        // Sort artists on mobile
+        const mobileContainer = document.getElementById('mobile-artists-container');
+        if (mobileContainer) {
+            const cards = Array.from(mobileContainer.querySelectorAll('.artist-card'));
+            
+            // Sort the cards
+            cards.sort((a, b) => {
+                let valA, valB;
+                
+                if (column === 'name') {
+                    valA = a.getAttribute('data-name');
+                    valB = b.getAttribute('data-name');
+                } else if (column === 'status') {
+                    valA = a.getAttribute('data-status');
+                    valB = b.getAttribute('data-status');
+                    // Special handling: "active" comes before "onhold"
+                    if (direction === 'asc') {
+                        if (valA === 'active' && valB === 'onhold') return -1;
+                        if (valA === 'onhold' && valB === 'active') return 1;
+                    } else {
+                        if (valA === 'active' && valB === 'onhold') return 1;
+                        if (valA === 'onhold' && valB === 'active') return -1;
+                    }
+                } else if (column === 'date') {
+                    valA = a.getAttribute('data-date');
+                    valB = b.getAttribute('data-date');
+                } else if (column === 'type') {
+                    valA = a.getAttribute('data-artist-type');
+                    valB = b.getAttribute('data-artist-type');
+                    // Special handling: "music" comes before "comedy" by default
+                    if (direction === 'asc') {
+                        if (valA === 'music' && valB === 'comedy') return -1;
+                        if (valA === 'comedy' && valB === 'music') return 1;
+                    } else {
+                        if (valA === 'music' && valB === 'comedy') return 1;
+                        if (valA === 'comedy' && valB === 'music') return -1;
+                    }
+                }
+                
+                // Compare values
+                if (direction === 'asc') {
+                    return valA.localeCompare(valB);
+                } else {
+                    return valB.localeCompare(valA);
+                }
+            });
+            
+            // Reorder the cards
+            cards.forEach(card => mobileContainer.appendChild(card));
+        }
+    }
 });
-
-function sortTable(column, direction) {
-    const table = document.getElementById('artists-table');
-    if (!table) return;
-    
-    const tbody = table.querySelector('tbody');
-    const rows = Array.from(tbody.querySelectorAll('tr'));
-    
-    // Sort the rows
-    rows.sort((a, b) => {
-        let valueA = a.dataset[column];
-        let valueB = b.dataset[column];
-        
-        // For name, use natural case-insensitive sorting
-        if (column === 'name') {
-            return direction === 'asc' 
-                ? valueA.localeCompare(valueB)
-                : valueB.localeCompare(valueA);
-        }
-        
-        // For status, custom sort order (active first, then on-hold)
-        if (column === 'status') {
-            const orderA = valueA === 'active' ? 0 : 1;
-            const orderB = valueB === 'active' ? 0 : 1;
-            return direction === 'asc'
-                ? orderA - orderB
-                : orderB - orderA;
-        }
-        
-        // For dates, numeric comparison
-        if (column === 'date') {
-            return direction === 'asc'
-                ? valueA - valueB
-                : valueB - valueA;
-        }
-        
-        return 0;
-    });
-    
-    // Re-append rows in the new order
-    rows.forEach(row => tbody.appendChild(row));
-}
-
-function sortMobileCards(column, direction) {
-    const container = document.getElementById('mobile-artists-container');
-    if (!container) return;
-    
-    const cards = Array.from(container.querySelectorAll('.artist-card'));
-    
-    // Sort the cards
-    cards.sort((a, b) => {
-        let valueA = a.dataset[column];
-        let valueB = b.dataset[column];
-        
-        // For name, use natural case-insensitive sorting
-        if (column === 'name') {
-            return direction === 'asc' 
-                ? valueA.localeCompare(valueB)
-                : valueB.localeCompare(valueA);
-        }
-        
-        // For status, custom sort order (active first, then on-hold)
-        if (column === 'status') {
-            const orderA = valueA === 'active' ? 0 : 1;
-            const orderB = valueB === 'active' ? 0 : 1;
-            return direction === 'asc'
-                ? orderA - orderB
-                : orderB - orderA;
-        }
-        
-        // For dates, numeric comparison
-        if (column === 'date') {
-            return direction === 'asc'
-                ? valueA - valueB
-                : valueB - valueA;
-        }
-        
-        return 0;
-    });
-    
-    // Re-append cards in the new order
-    cards.forEach(card => container.appendChild(card));
-    
-    // Update UI to reflect current sort
-    const mobileSortField = document.getElementById('mobile-sort-field');
-    const mobileSortDirection = document.getElementById('mobile-sort-direction');
-    
-    if (mobileSortField) {
-        mobileSortField.value = column;
-    }
-    
-    if (mobileSortDirection) {
-        mobileSortDirection.classList.toggle('desc', direction === 'desc');
-    }
-}
 
 // Clean up on page unload
 window.addEventListener('beforeunload', function() {

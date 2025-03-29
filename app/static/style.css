@@ -594,6 +594,20 @@ body {
     .loading-details {
         max-height: 150px;
     }
+    
+    .artist-card:hover {
+        transform: none;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+    
+    .table tbody tr:hover td {
+        background-color: var(--bg-secondary);
+    }
+    
+    /* Prevent color change on hover for mobile */
+    .artist-card {
+        transition: none;
+    }
 }
 
 /* Action buttons improvements */
@@ -705,4 +719,39 @@ body {
 /* Ensure artist cards on mobile have proper spacing */
 .artist-card .search-methods {
     margin-bottom: 5px;
+}
+
+/* Increase artist type icon size */
+.bi-music-note-beamed, .bi-emoji-laughing {
+    font-size: 1.5rem;
+    margin-right: 0.5rem !important;
+}
+
+/* Artist type icon containers */
+.artist-type-icon {
+    display: flex;
+    align-items: center;
+    margin-right: 0.5rem;
+}
+
+/* Sort by artist type */
+tr[data-artist-type="comedy"], 
+.artist-card[data-artist-type="comedy"] {
+    order: 2;
+}
+
+tr[data-artist-type="music"], 
+.artist-card[data-artist-type="music"] {
+    order: 1;
+}
+
+/* Enable flex ordering for container */
+#mobile-artists-container {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Bigger search method icons */
+.search-method i {
+    font-size: 1.1rem;
 }
