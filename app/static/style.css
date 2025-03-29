@@ -459,3 +459,172 @@ body {
 .loading-details .error {
     color: var(--danger);
 }
+
+/* New styles for mobile-friendly artists list */
+.artist-card {
+    background-color: var(--bg-secondary);
+    transition: background-color 0.3s ease;
+    position: relative;
+}
+
+.artist-card:hover {
+    background-color: var(--hover-bg);
+}
+
+.artist-card:last-child {
+    border-bottom: none !important;
+}
+
+.location-badges {
+    display: flex;
+    flex-wrap: wrap;
+}
+
+.empty-state {
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: var(--text-secondary);
+}
+
+.empty-icon {
+    font-size: 3rem;
+    opacity: 0.5;
+}
+
+/* Sorting styles */
+.sortable {
+    cursor: pointer;
+    position: relative;
+    user-select: none;
+}
+
+.sort-icon {
+    opacity: 0.3;
+    font-size: 0.8em;
+    transition: opacity 0.3s ease;
+}
+
+.sortable:hover .sort-icon {
+    opacity: 0.7;
+}
+
+.sort-asc .sort-icon, 
+.sort-desc .sort-icon {
+    opacity: 1;
+}
+
+.sort-asc .sort-icon::before {
+    content: "\F128"; /* Bootstrap arrow up icon */
+}
+
+.sort-desc .sort-icon::before {
+    content: "\F12C"; /* Bootstrap arrow down icon */
+}
+
+/* Responsive adjustments */
+@media (max-width: 767px) {
+    .card {
+        border-radius: 0.75rem;
+        margin-left: -0.25rem;
+        margin-right: -0.25rem;
+        width: calc(100% + 0.5rem);
+    }
+    
+    .navbar-brand {
+        font-size: 1.25rem;
+    }
+    
+    h1.h2 {
+        font-size: 1.5rem;
+    }
+    
+    .btn {
+        padding-left: 0.75rem;
+        padding-right: 0.75rem;
+    }
+    
+    .loading-details {
+        max-height: 150px;
+    }
+}
+
+/* Action buttons improvements */
+.btn-group-sm .btn {
+    padding: 0.375rem 0.5rem;
+}
+
+.btn-group-sm .btn i {
+    font-size: 0.9rem;
+}
+
+@media (min-width: 768px) {
+    .table thead th {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+    }
+}
+
+/* Status indicator improvements */
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Loading modal improvements */
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(33, 150, 243, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--accent-primary);
+    animation: spin 1s linear infinite;
+    margin: 0 auto;
+}
+
+/* Table improvements for better mobile display */
+.table-responsive {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Badge improvements */
+.badge {
+    font-size: 0.75rem;
+    padding: 0.4em 0.8em;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.badge.bg-success {
+    background-color: rgba(76, 175, 80, 0.2) !important;
+    color: #4caf50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.badge.bg-warning {
+    background-color: rgba(255, 152, 0, 0.2) !important;
+    color: #ff9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.badge.bg-secondary {
+    background-color: var(--bg-tertiary) !important;
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+/* Add smooth transitions */
+.btn, .badge, .card, a, .status-indicator {
+    transition: all 0.2s ease-in-out;
+}
+
+/* Improved card body padding when empty */
+.card-body.p-0 {
+    overflow: hidden;
+    border-radius: 12px;
+}

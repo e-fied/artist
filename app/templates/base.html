@@ -6,33 +6,35 @@
     <title>Artist Tour Tracker</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='favicon.svg') }}">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
+    <nav class="navbar navbar-expand-lg sticky-top">
+        <div class="container-fluid px-3 px-md-4">
+            <a class="navbar-brand d-flex align-items-center" href="{{ url_for('index') }}">
                 <i class="bi bi-music-note-beamed me-2"></i>Artist Tour Tracker
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list text-white"></i>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
+                <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="bi bi-house-door me-1"></i>Artists
+                        <a class="nav-link d-flex align-items-center" href="{{ url_for('index') }}">
+                            <i class="bi bi-house-door me-2"></i>Artists
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('add_artist') }}">
-                            <i class="bi bi-plus-circle me-1"></i>Add Artist
+                        <a class="nav-link d-flex align-items-center" href="{{ url_for('add_artist') }}">
+                            <i class="bi bi-plus-circle me-2"></i>Add Artist
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('settings') }}">
-                            <i class="bi bi-gear me-1"></i>Settings
+                        <a class="nav-link d-flex align-items-center" href="{{ url_for('settings') }}">
+                            <i class="bi bi-gear me-2"></i>Settings
                         </a>
                     </li>
                 </ul>
@@ -40,12 +42,21 @@
         </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container-fluid px-3 px-md-4 mt-4">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ category }} fade-in">
-                        <i class="bi bi-info-circle me-2"></i>{{ message }}
+                    <div class="alert alert-{{ category }} fade-in d-flex align-items-center">
+                        {% if category == 'success' %}
+                            <i class="bi bi-check-circle-fill me-2"></i>
+                        {% elif category == 'danger' or category == 'error' %}
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {% elif category == 'warning' %}
+                            <i class="bi bi-exclamation-circle-fill me-2"></i>
+                        {% else %}
+                            <i class="bi bi-info-circle-fill me-2"></i>
+                        {% endif %}
+                        <div>{{ message }}</div>
                     </div>
                 {% endfor %}
             {% endif %}
@@ -69,8 +80,32 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Show loading modal when checking artists
         document.addEventListener('DOMContentLoaded', function() {
+            // Auto-close alerts after 5 seconds
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                setTimeout(() => {
+                    if (alert) {
+                        const bsAlert = new bootstrap.Alert(alert);
+                        bsAlert.close();
+                    }
+                }, 5000);
+            });
+            
+            // Add active class to current nav item
+            const currentPath = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            navLinks.forEach(link => {
+                const href = link.getAttribute('href');
+                if (href === currentPath || 
+                    (currentPath.includes('/edit_artist/') && href === '/') ||
+                    (currentPath.includes('/check_artist/') && href === '/')) {
+                    link.classList.add('active');
+                }
+            });
+            
+            // Show loading modal when checking artists
             const checkButtons = document.querySelectorAll('a[href*="check_artist"], a[href*="check_all"]');
             const loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
             

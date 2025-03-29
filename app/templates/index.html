@@ -1,42 +1,94 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h1 class="mb-1">Artists</h1>
+<div class="container-fluid px-3 px-md-4">
+    <!-- Header Section -->
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+        <div class="mb-3 mb-md-0">
+            <h1 class="h2 mb-1">Artists</h1>
             <p class="text-secondary mb-0">Track tour dates for your favorite artists</p>
         </div>
-        <div class="btn-group">
+        <div class="d-flex flex-wrap gap-2">
             <a href="{{ url_for('check_all_artists_route') }}" class="btn btn-success check-button">
-                <i class="bi bi-search me-2"></i>Check All Artists
+                <i class="bi bi-search me-2"></i><span class="d-none d-sm-inline">Check All</span>
             </a>
             <a href="{{ url_for('add_artist') }}" class="btn btn-primary">
-                <i class="bi bi-plus-lg me-2"></i>Add Artist
+                <i class="bi bi-plus-lg me-2"></i><span class="d-none d-sm-inline">Add Artist</span>
             </a>
         </div>
     </div>
 
-    <div class="card">
-        <div class="card-body">
-            <div class="table-responsive">
-                <table class="table">
+    <!-- Artists List Card -->
+    <div class="card mb-4">
+        <div class="card-body p-0">
+            <!-- Mobile View (Card-based) -->
+            <div class="d-md-none">
+                {% for artist in artists %}
+                <div class="artist-card p-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                            <h5 class="mb-0">{{ artist.name }}</h5>
+                        </div>
+                        <div class="status-badge">
+                            {% if artist.on_hold %}
+                            <span class="badge bg-warning">On Hold</span>
+                            {% else %}
+                            <span class="badge bg-success">Active</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="location-badges mb-2">
+                        {% for city in artist.cities.split(',') %}
+                        <span class="badge bg-secondary me-1 mb-1">{{ city.strip() }}</span>
+                        {% endfor %}
+                    </div>
+                    
+                    <div class="text-secondary small mb-3">
+                        Last checked: {{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}
+                    </div>
+                    
+                    <div class="d-flex justify-content-between">
+                        <div class="btn-group btn-group-sm w-100">
+                            <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button flex-grow-1" title="Check Now">
+                                <i class="bi bi-search me-1"></i>Check
+                            </a>
+                            <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-outline-primary flex-grow-1" title="Edit">
+                                <i class="bi bi-pencil-square me-1"></i>Edit
+                            </a>
+                            <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger flex-grow-1" 
+                               onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
+                                <i class="bi bi-trash3 me-1"></i>Delete
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <!-- Desktop View (Table-based) -->
+            <div class="d-none d-md-block table-responsive">
+                <table class="table table-hover" id="artists-table">
                     <thead>
                         <tr>
-                            <th>Name</th>
+                            <th class="sortable" data-sort="name">Name <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th>Cities</th>
-                            <th>Status</th>
-                            <th>Last Checked</th>
-                            <th>Actions</th>
+                            <th class="sortable" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="sortable" data-sort="date">Last Checked <i class="bi bi-arrow-down-up sort-icon"></i></th>
+                            <th class="text-center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for artist in artists %}
-                        <tr>
+                        <tr data-artist-id="{{ artist.id }}" 
+                            data-name="{{ artist.name.lower() }}" 
+                            data-status="{{ 'onhold' if artist.on_hold else 'active' }}"
+                            data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
                             <td>
                                 <div class="d-flex align-items-center">
                                     <i class="bi bi-music-note-beamed me-2 text-primary"></i>
-                                    {{ artist.name }}
+                                    <span class="artist-name">{{ artist.name }}</span>
                                 </div>
                             </td>
                             <td>
@@ -49,12 +101,12 @@
                             <td>
                                 {% if artist.on_hold %}
                                 <div class="d-flex align-items-center">
-                                    <span class="status-indicator on-hold"></span>
+                                    <span class="status-indicator on-hold me-2"></span>
                                     <span class="badge bg-warning">On Hold</span>
                                 </div>
                                 {% else %}
                                 <div class="d-flex align-items-center">
-                                    <span class="status-indicator active"></span>
+                                    <span class="status-indicator active me-2"></span>
                                     <span class="badge bg-success">Active</span>
                                 </div>
                                 {% endif %}
@@ -63,14 +115,15 @@
                                 <span class="text-secondary small">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</span>
                             </td>
                             <td>
-                                <div class="btn-group btn-group-sm">
+                                <div class="btn-group btn-group-sm d-flex justify-content-center">
                                     <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button" title="Check Now">
                                         <i class="bi bi-search"></i>
                                     </a>
                                     <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-outline-primary" title="Edit">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
-                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
+                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger" 
+                                       onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
                                         <i class="bi bi-trash3"></i>
                                     </a>
                                 </div>
@@ -80,6 +133,20 @@
                     </tbody>
                 </table>
             </div>
+            
+            <!-- Empty State -->
+            {% if not artists %}
+            <div class="text-center py-5">
+                <div class="empty-state">
+                    <i class="bi bi-music-note-beamed empty-icon"></i>
+                    <h3 class="mt-4">No Artists Added Yet</h3>
+                    <p class="text-secondary mb-4">Add your first artist to start tracking tour dates</p>
+                    <a href="{{ url_for('add_artist') }}" class="btn btn-primary">
+                        <i class="bi bi-plus-lg me-2"></i>Add Artist
+                    </a>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -88,7 +155,7 @@
 <div class="modal fade" id="loadingModal" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
-            <div class="modal-body text-center p-5">
+            <div class="modal-body text-center p-4">
                 <div class="spinner mb-4"></div>
                 <h5 class="modal-title mb-3">Checking for Tour Dates</h5>
                 <p class="text-secondary mb-3" id="loadingStatus">Initializing search...</p>
@@ -103,6 +170,7 @@
 <script>
 let loadingModal = null;
 let eventSource = null;
+let currentSort = { column: 'name', direction: 'asc' };
 
 document.addEventListener('DOMContentLoaded', function() {
     loadingModal = new bootstrap.Modal(document.getElementById('loadingModal'));
@@ -177,7 +245,71 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
         });
     });
+    
+    // Handle sorting
+    const sortableHeaders = document.querySelectorAll('.sortable');
+    sortableHeaders.forEach(header => {
+        header.addEventListener('click', function() {
+            const column = this.dataset.sort;
+            const direction = currentSort.column === column && currentSort.direction === 'asc' ? 'desc' : 'asc';
+            
+            // Update sort state
+            currentSort = { column, direction };
+            
+            // Update visual indicators
+            document.querySelectorAll('.sortable').forEach(th => {
+                th.classList.remove('sort-asc', 'sort-desc');
+            });
+            this.classList.add(`sort-${direction}`);
+            
+            // Sort the table
+            sortTable(column, direction);
+        });
+    });
+    
+    // Initial sort (by name ascending)
+    sortTable('name', 'asc');
 });
+
+function sortTable(column, direction) {
+    const table = document.getElementById('artists-table');
+    const tbody = table.querySelector('tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr'));
+    
+    // Sort the rows
+    rows.sort((a, b) => {
+        let valueA = a.dataset[column];
+        let valueB = b.dataset[column];
+        
+        // For name, use natural case-insensitive sorting
+        if (column === 'name') {
+            return direction === 'asc' 
+                ? valueA.localeCompare(valueB)
+                : valueB.localeCompare(valueA);
+        }
+        
+        // For status, custom sort order (active first, then on-hold)
+        if (column === 'status') {
+            const orderA = valueA === 'active' ? 0 : 1;
+            const orderB = valueB === 'active' ? 0 : 1;
+            return direction === 'asc'
+                ? orderA - orderB
+                : orderB - orderA;
+        }
+        
+        // For dates, numeric comparison
+        if (column === 'date') {
+            return direction === 'asc'
+                ? valueA - valueB
+                : valueB - valueA;
+        }
+        
+        return 0;
+    });
+    
+    // Re-append rows in the new order
+    rows.forEach(row => tbody.appendChild(row));
+}
 
 // Clean up on page unload
 window.addEventListener('beforeunload', function() {
