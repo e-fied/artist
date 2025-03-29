@@ -253,15 +253,34 @@ class TourScraper:
         self.settings = Settings.get_settings()
         self.gemini_api_key = os.getenv('GEMINI_API_KEY')
         # Configure Gemini
-        genai.configure(api_key=self.gemini_api_key)
-        # Initialize the model
-        self.model = genai.GenerativeModel('gemini-2.0-flash-lite')
-        self.firecrawl = FirecrawlApp(api_key=os.getenv('FIRECRAWL_API_KEY'))
+        if self.gemini_api_key:
+             genai.configure(api_key=self.gemini_api_key)
+             # Correct the model name here
+             self.model = genai.GenerativeModel('gemini-1.5-flash-lite')
+             logger.info("Gemini configured successfully.")
+        else:
+             logger.warning("GEMINI_API_KEY not found. LLM processing will be skipped.")
+             self.model = None # Set model to None if not configured
+
+        # Store the Firecrawl API key as an attribute
+        self.firecrawl_api_key = os.getenv('FIRECRAWL_API_KEY') # <-- Store the key
+        if self.firecrawl_api_key:
+            self.firecrawl = FirecrawlApp(api_key=self.firecrawl_api_key)
+            logger.info("Firecrawl configured successfully.")
+        else:
+            logger.warning("FIRECRAWL_API_KEY not found. Web scraping will be skipped.")
+            self.firecrawl = None # Set firecrawl client to None if not configured
+
         self.ticketmaster = None
         try:
+            # TicketmasterClient already handles its own key check
             self.ticketmaster = TicketmasterClient()
+            logger.info("Ticketmaster client initialized.")
         except ValueError:
-            logger.warning("Ticketmaster client initialization failed - will only use web scraping")
+            logger.warning("Ticketmaster client initialization failed (API key likely missing). Ticketmaster checks will be skipped.")
+        except Exception as e:
+             logger.error(f"Unexpected error initializing TicketmasterClient: {e}", exc_info=True)
+             self.ticketmaster = None # Ensure it's None on other init errors
 
     def scrape_url(self, url: str) -> Dict:
         """
@@ -321,9 +340,13 @@ class TourScraper:
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         """Processes scraped data with the LLM to find tour dates."""
-        if not self.gemini_api_key:
-            logger.error("Gemini API key not configured. Cannot process with LLM.")
-            return []
+        # Explicitly check if the model was initialized
+        if not self.model:
+             logger.error("Gemini model not initialized (likely missing API key). Cannot process with LLM.")
+             # Returning [] here will cause the calling function (check_artist)
+             # to log an error and add it to the scrape_error_messages for notification.
+             # We can make the error more specific by raising it here.
+             raise ValueError("Gemini model not initialized (API key likely missing)")
 
         # Extract the raw list of locations the user entered
         user_locations = [loc.strip() for loc in artist.cities.split(',') if loc.strip()]
@@ -389,12 +412,16 @@ class TourScraper:
                 logger.error(f"Unexpected error parsing LLM response for {artist.name}: {e}")
                 return []
 
+        except ValueError as ve: # Catch the specific error we raised
+             logger.error(f"Skipping LLM for {artist.name}: {ve}")
+             raise # Re-raise the error so check_artist catches it properly
         except Exception as e:
-            logger.error(f"Failed to generate content with LLM for {artist.name}: {str(e)}")
-            # Log specific Gemini API errors if possible
-            if hasattr(e, 'response'):
-                 logger.error(f"Gemini API Error Details: {e.response}")
-            return []
+             logger.error(f"Failed to generate content with LLM for {artist.name}: {str(e)}")
+             # Log specific Gemini API errors if possible
+             if hasattr(e, 'response'):
+                  logger.error(f"Gemini API Error Details: {e.response}")
+             # Raise the exception so check_artist catches it and adds to scrape_error_messages
+             raise # Re-raise the original exception
 
     def check_artist(self, artist: Artist, notifier: TelegramNotifier) -> List[Dict]:
         logger.info(f"Starting check for artist: {artist.name}")
