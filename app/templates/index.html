@@ -24,26 +24,28 @@
             <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center">
                 <div class="mb-2 mb-md-0">
                     <div class="d-flex align-items-center">
-                        <i class="bi bi-clock-history text-primary me-2"></i>
-                        <span>Next scheduled scan: 
-                            {% if next_schedule %}
-                                <strong>{{ next_schedule.strftime('%Y-%m-%d %H:%M') }}</strong>
+                        <i class="bi bi-clock-history text-primary me-2 fs-5"></i>
+                        <div>
+                            <span class="text-dark fw-medium">Next scheduled scan:</span>
+                            {% if next_schedule_formatted %}
+                                <div class="text-primary fw-bold">{{ next_schedule_formatted }}</div>
                             {% else %}
-                                <span class="text-muted">Not scheduled</span>
+                                <div class="text-muted fst-italic">Not scheduled</div>
                             {% endif %}
-                        </span>
+                        </div>
                     </div>
                 </div>
                 <div>
                     <div class="d-flex align-items-center">
-                        <i class="bi bi-check-circle text-success me-2"></i>
-                        <span>Last completed scan: 
-                            {% if last_check %}
-                                <strong>{{ last_check.strftime('%Y-%m-%d %H:%M') }}</strong>
+                        <i class="bi bi-check-circle text-success me-2 fs-5"></i>
+                        <div>
+                            <span class="text-dark fw-medium">Last completed scan:</span>
+                            {% if last_check_formatted %}
+                                <div class="text-success fw-bold">{{ last_check_formatted }}</div>
                             {% else %}
-                                <span class="text-muted">Never</span>
+                                <div class="text-muted fst-italic">Never</div>
                             {% endif %}
-                        </span>
+                        </div>
                     </div>
                 </div>
             </div>

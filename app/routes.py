@@ -26,6 +26,30 @@ def log_message(message, type='info'):
     else:
         logger.info(message)
 
+def format_date_for_display(dt):
+    """Format a datetime in a friendly format like 'March 3, 2023 9am'"""
+    if not dt:
+        return None
+    
+    # Format the date part
+    month = dt.strftime('%B')
+    day = dt.day  # This removes leading zero
+    year = dt.year
+    
+    # Format the time part
+    hour = dt.hour % 12
+    if hour == 0:
+        hour = 12
+    am_pm = dt.strftime('%p').lower()
+    
+    if dt.minute == 0:
+        # If it's on the hour, don't show minutes
+        time_str = f"{hour}{am_pm}"
+    else:
+        time_str = f"{hour}:{dt.minute:02d}{am_pm}"
+    
+    return f"{month} {day}, {year} {time_str}"
+
 @app.route('/')
 def index():
     artists = Artist.query.all()
@@ -48,6 +72,7 @@ def index():
         schedule_times.append(schedule_time)
     
     next_schedule = min(schedule_times) if schedule_times else None
+    next_schedule_formatted = format_date_for_display(next_schedule) if next_schedule else None
     
     # Get last completed check time - use the most recent last_checked from artists
     last_check = None
@@ -56,8 +81,12 @@ def index():
         if checked_artists:
             last_check = max(a.last_checked for a in checked_artists)
     
+    last_check_formatted = format_date_for_display(last_check) if last_check else None
+    
     return render_template('index.html', artists=artists, initial_logs=latest_logs, 
-                          next_schedule=next_schedule, last_check=last_check)
+                          next_schedule=next_schedule, last_check=last_check,
+                          next_schedule_formatted=next_schedule_formatted,
+                          last_check_formatted=last_check_formatted)
 
 @app.route('/events')
 def events():
