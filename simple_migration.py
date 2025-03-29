@@ -1,11 +1,10 @@
-from app import app, db
-from app.models import Artist, Settings
 import sqlite3
 import os
 
 def run_migration():
     """
-    Script to migrate database schema by adding artist_type column
+    Simple script to migrate database schema by adding artist_type column
+    This doesn't require Flask or SQLAlchemy imports
     """
     # Look for database in multiple possible locations
     possible_paths = [
@@ -26,6 +25,9 @@ def run_migration():
     
     if not db_path:
         print("Database file not found in any of the expected locations.")
+        print(f"Current directory: {os.getcwd()}")
+        print("Listing files in current directory:")
+        print(os.listdir('.'))
         return
     
     try:
