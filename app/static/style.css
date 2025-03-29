@@ -47,6 +47,7 @@ body {
     border-radius: 12px;
     box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
+    overflow: hidden;
 }
 
 .card:hover {
@@ -629,12 +630,12 @@ body {
     
     /* Column width adjustments */
     .table th:nth-child(1), .table td:nth-child(1) { /* Name column */
-        width: 25%;
+        width: 24%;
         max-width: 220px;
     }
     
     .table th:nth-child(2), .table td:nth-child(2) { /* Cities column */
-        width: 25%;
+        width: 38%;
     }
     
     .table th:nth-child(3), .table td:nth-child(3) { /* Status column */
@@ -643,26 +644,41 @@ body {
     }
     
     .table th:nth-child(4), .table td:nth-child(4) { /* Last Checked column */
-        width: 18%;
+        width: 16%;
         white-space: nowrap;
     }
     
     .table th:nth-child(5), .table td:nth-child(5) { /* Actions column */
-        width: 14%;
-        min-width: 120px; 
+        width: 10%;
+        min-width: 130px;
+    }
+    
+    /* Table behavior at different breakpoints */
+    @media (max-width: 992px) {
+        .table th:nth-child(1), .table td:nth-child(1) { /* Name column */
+            width: 22%;
+        }
+        
+        .table th:nth-child(2), .table td:nth-child(2) { /* Cities column */
+            width: 36%;
+        }
+        
+        .table th:nth-child(4), .table td:nth-child(4) { /* Last Checked column */
+            width: 20%;
+        }
     }
     
     /* More compact layout */
     .table-responsive {
-        max-width: 960px;
-        margin: 0 auto;
-        border-radius: 8px;
+        max-width: 100%;
+        margin: 0;
+        border-radius: 0;
         overflow: hidden;
     }
     
     /* Container max width */
     .max-width-container {
-        max-width: 1000px;
+        max-width: 1100px;
     }
     
     /* Artist name truncation */
@@ -676,6 +692,17 @@ body {
     /* More compact buttons */
     .actions-column .btn {
         padding: 0.25rem 0.4rem;
+    }
+
+    /* Card should not have padding in this case */
+    .card-body.p-0 {
+        padding: 0 !important;
+    }
+    
+    /* Ensure the table fills the card completely */
+    .table {
+        margin-bottom: 0;
+        width: 100%;
     }
 }
 
@@ -819,23 +846,28 @@ tr[data-artist-type="music"],
 
 /* Improved actions column */
 .actions-column {
-    min-width: 130px; /* Ensure enough space for buttons */
+    min-width: 130px;
+    width: 130px;
 }
 
 .actions-column .btn-group {
     display: flex;
-    justify-content: center;
+    justify-content: space-between;
     width: 100%;
 }
 
 .actions-column .btn {
-    padding: 0.4rem 0.6rem;
-    margin: 0 2px;
-    flex-grow: 1;
+    width: 40px;
+    height: 34px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 1px;
 }
 
 .actions-column .btn i {
-    font-size: 1.1rem;
+    font-size: 0.9rem;
 }
 
 /* Cities column display */
@@ -846,42 +878,73 @@ tr[data-artist-type="music"],
 
 /* Desktop table improvements */
 @media (min-width: 768px) {
-    /* Action buttons improvements */
-    .actions-column .btn-group {
-        justify-content: space-between;
-    }
-    
+    /* Actions column styling improvements */
     .actions-column .btn {
-        margin: 0 1px;
         border-radius: 6px;
+        background-color: transparent;
     }
     
     .btn-outline-success {
-        color: #fff;
-        background-color: rgba(76, 175, 80, 0.2);
+        color: var(--success);
+        border-color: var(--success);
     }
     
     .btn-outline-primary {
-        color: #fff;
-        background-color: rgba(33, 150, 243, 0.2);
+        color: var(--accent-primary);
+        border-color: var(--accent-primary);
     }
     
     .btn-outline-danger {
-        color: #fff;
-        background-color: rgba(244, 67, 54, 0.2);
+        color: var(--danger);
+        border-color: var(--danger);
     }
     
-    /* Better search method badges */
-    .search-method {
-        width: 26px;
-        height: 26px;
+    .btn-outline-success:hover, .btn-outline-success:focus {
+        background-color: rgba(76, 175, 80, 0.15);
+        color: var(--success);
+    }
+    
+    .btn-outline-primary:hover, .btn-outline-primary:focus {
+        background-color: rgba(33, 150, 243, 0.15);
+        color: var(--accent-primary);
+    }
+    
+    .btn-outline-danger:hover, .btn-outline-danger:focus {
+        background-color: rgba(244, 67, 54, 0.15);
+        color: var(--danger);
     }
 }
 
 /* Container max width for desktop */
 .max-width-container {
-    max-width: 1400px;
+    width: 100%;
+    max-width: 1100px;
     margin: 0 auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+/* Responsive media queries for container size */
+@media (max-width: 1200px) {
+    .max-width-container {
+        max-width: 95%;
+    }
+}
+
+@media (max-width: 992px) {
+    .max-width-container {
+        max-width: 96%;
+        padding-left: 0.5rem;
+        padding-right: 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .max-width-container {
+        max-width: 100%;
+        padding-left: 0.25rem;
+        padding-right: 0.25rem;
+    }
 }
 
 /* Improve table cell content handling */
