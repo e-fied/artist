@@ -475,6 +475,12 @@ body {
     border-bottom: none !important;
 }
 
+.artist-card h5 {
+    color: #ffffff;
+    font-weight: 600;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
 .location-badges {
     display: flex;
     flex-wrap: wrap;
@@ -491,6 +497,46 @@ body {
 .empty-icon {
     font-size: 3rem;
     opacity: 0.5;
+}
+
+/* Mobile sorting controls */
+.mobile-sort-controls {
+    background-color: var(--bg-tertiary);
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.mobile-sort-controls select {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 0.5rem;
+    font-size: 0.9rem;
+    width: auto;
+}
+
+.mobile-sort-controls .sort-direction {
+    background-color: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    width: 38px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.mobile-sort-controls .sort-direction i {
+    transition: transform 0.3s ease;
+}
+
+.mobile-sort-controls .sort-direction.desc i {
+    transform: rotate(180deg);
 }
 
 /* Sorting styles */

@@ -23,48 +23,66 @@
         <div class="card-body p-0">
             <!-- Mobile View (Card-based) -->
             <div class="d-md-none">
-                {% for artist in artists %}
-                <div class="artist-card p-3 border-bottom">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <div class="d-flex align-items-center">
-                            <i class="bi bi-music-note-beamed me-2 text-primary"></i>
-                            <h5 class="mb-0">{{ artist.name }}</h5>
-                        </div>
-                        <div class="status-badge">
-                            {% if artist.on_hold %}
-                            <span class="badge bg-warning">On Hold</span>
-                            {% else %}
-                            <span class="badge bg-success">Active</span>
-                            {% endif %}
-                        </div>
-                    </div>
-                    
-                    <div class="location-badges mb-2">
-                        {% for city in artist.cities.split(',') %}
-                        <span class="badge bg-secondary me-1 mb-1">{{ city.strip() }}</span>
-                        {% endfor %}
-                    </div>
-                    
-                    <div class="text-secondary small mb-3">
-                        Last checked: {{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}
-                    </div>
-                    
-                    <div class="d-flex justify-content-between">
-                        <div class="btn-group btn-group-sm w-100">
-                            <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button flex-grow-1" title="Check Now">
-                                <i class="bi bi-search me-1"></i>Check
-                            </a>
-                            <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-outline-primary flex-grow-1" title="Edit">
-                                <i class="bi bi-pencil-square me-1"></i>Edit
-                            </a>
-                            <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger flex-grow-1" 
-                               onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
-                                <i class="bi bi-trash3 me-1"></i>Delete
-                            </a>
-                        </div>
-                    </div>
+                <!-- Mobile Sorting Controls -->
+                <div class="mobile-sort-controls">
+                    <select id="mobile-sort-field" class="form-select form-select-sm">
+                        <option value="name">Sort by: Name</option>
+                        <option value="status">Sort by: Status</option>
+                        <option value="date">Sort by: Last Checked</option>
+                    </select>
+                    <button id="mobile-sort-direction" class="sort-direction">
+                        <i class="bi bi-arrow-up"></i>
+                    </button>
                 </div>
-                {% endfor %}
+                
+                <div id="mobile-artists-container">
+                    {% for artist in artists %}
+                    <div class="artist-card p-3 border-bottom" 
+                         data-artist-id="{{ artist.id }}" 
+                         data-name="{{ artist.name.lower() }}" 
+                         data-status="{{ 'onhold' if artist.on_hold else 'active' }}"
+                         data-date="{{ artist.last_checked.strftime('%Y%m%d%H%M') if artist.last_checked else '000000' }}">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-music-note-beamed me-2 text-primary"></i>
+                                <h5 class="mb-0">{{ artist.name }}</h5>
+                            </div>
+                            <div class="status-badge">
+                                {% if artist.on_hold %}
+                                <span class="badge bg-warning">On Hold</span>
+                                {% else %}
+                                <span class="badge bg-success">Active</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <div class="location-badges mb-2">
+                            {% for city in artist.cities.split(',') %}
+                            <span class="badge bg-secondary me-1 mb-1">{{ city.strip() }}</span>
+                            {% endfor %}
+                        </div>
+                        
+                        <div class="text-secondary small mb-3">
+                            Last checked: {{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <div class="btn-group btn-group-sm w-100">
+                                <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button flex-grow-1" title="Check Now">
+                                    <i class="bi bi-search me-1"></i>Check
+                                </a>
+                                <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-outline-primary flex-grow-1" title="Edit">
+                                    <i class="bi bi-pencil-square me-1"></i>Edit
+                                </a>
+                                <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger flex-grow-1" 
+                                   onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
+                                    <i class="bi bi-trash3 me-1"></i>Delete
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
             </div>
             
             <!-- Desktop View (Table-based) -->
@@ -246,7 +264,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
-    // Handle sorting
+    // Handle desktop sorting
     const sortableHeaders = document.querySelectorAll('.sortable');
     sortableHeaders.forEach(header => {
         header.addEventListener('click', function() {
@@ -267,12 +285,40 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // Handle mobile sorting
+    const mobileSortField = document.getElementById('mobile-sort-field');
+    const mobileSortDirection = document.getElementById('mobile-sort-direction');
+    
+    if (mobileSortField && mobileSortDirection) {
+        // Initial sorting for mobile
+        sortMobileCards('name', 'asc');
+        
+        // Handle sort field change
+        mobileSortField.addEventListener('change', function() {
+            const column = this.value;
+            sortMobileCards(column, currentSort.direction);
+            currentSort.column = column;
+        });
+        
+        // Handle sort direction toggle
+        mobileSortDirection.addEventListener('click', function() {
+            const newDirection = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            sortMobileCards(currentSort.column, newDirection);
+            currentSort.direction = newDirection;
+            
+            // Update direction button UI
+            this.classList.toggle('desc', newDirection === 'desc');
+        });
+    }
+    
     // Initial sort (by name ascending)
     sortTable('name', 'asc');
 });
 
 function sortTable(column, direction) {
     const table = document.getElementById('artists-table');
+    if (!table) return;
+    
     const tbody = table.querySelector('tbody');
     const rows = Array.from(tbody.querySelectorAll('tr'));
     
@@ -309,6 +355,59 @@ function sortTable(column, direction) {
     
     // Re-append rows in the new order
     rows.forEach(row => tbody.appendChild(row));
+}
+
+function sortMobileCards(column, direction) {
+    const container = document.getElementById('mobile-artists-container');
+    if (!container) return;
+    
+    const cards = Array.from(container.querySelectorAll('.artist-card'));
+    
+    // Sort the cards
+    cards.sort((a, b) => {
+        let valueA = a.dataset[column];
+        let valueB = b.dataset[column];
+        
+        // For name, use natural case-insensitive sorting
+        if (column === 'name') {
+            return direction === 'asc' 
+                ? valueA.localeCompare(valueB)
+                : valueB.localeCompare(valueA);
+        }
+        
+        // For status, custom sort order (active first, then on-hold)
+        if (column === 'status') {
+            const orderA = valueA === 'active' ? 0 : 1;
+            const orderB = valueB === 'active' ? 0 : 1;
+            return direction === 'asc'
+                ? orderA - orderB
+                : orderB - orderA;
+        }
+        
+        // For dates, numeric comparison
+        if (column === 'date') {
+            return direction === 'asc'
+                ? valueA - valueB
+                : valueB - valueA;
+        }
+        
+        return 0;
+    });
+    
+    // Re-append cards in the new order
+    cards.forEach(card => container.appendChild(card));
+    
+    // Update UI to reflect current sort
+    const mobileSortField = document.getElementById('mobile-sort-field');
+    const mobileSortDirection = document.getElementById('mobile-sort-direction');
+    
+    if (mobileSortField) {
+        mobileSortField.value = column;
+    }
+    
+    if (mobileSortDirection) {
+        mobileSortDirection.classList.toggle('desc', direction === 'desc');
+    }
 }
 
 // Clean up on page unload
