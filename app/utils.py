@@ -3,9 +3,8 @@ from datetime import datetime
 import json
 from typing import List, Dict, Optional
 import requests
+from app import app, db
 from app.models import Artist, Settings
-from app import db
-import google.generativeai as genai
 from google.generativeai import types
 from pydantic import BaseModel
 from firecrawl import FirecrawlApp
@@ -179,44 +178,73 @@ class TicketmasterClient:
 
 class TelegramNotifier:
     def __init__(self):
+        """Initializes the Telegram Notifier, fetching credentials."""
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.getenv('TELEGRAM_CHAT_ID')
-        self.base_url = f"https://api.telegram.org/bot{self.bot_token}"
         
-        # Log initialization status
-        if self.bot_token and self.chat_id:
-            logger.info("Telegram credentials found")
+        # Log whether credentials were found during initialization
+        if not self.bot_token or not self.chat_id:
+            logger.warning("Telegram credentials (BOT_TOKEN or CHAT_ID) not found in environment variables.")
         else:
-            logger.error("Missing Telegram credentials in environment variables")
+            logger.info("Telegram credentials found.")
+
+    def is_configured(self) -> bool:
+        """Checks if both bot token and chat ID are configured."""
+        return bool(self.bot_token and self.chat_id)
 
     def send_message(self, message: str) -> bool:
-        if not self.bot_token or not self.chat_id:
-            logger.error("Telegram credentials not configured")
+        """Sends a message via the Telegram Bot API."""
+        if not self.is_configured():
+            logger.error("Telegram is not configured. Cannot send message.")
             return False
 
+        # Truncate message if it exceeds Telegram's limit (4096 chars)
+        max_len = 4096
+        if len(message) > max_len:
+            message = message[:max_len - 10] + "\n\n[...]" # Add indicator that it was truncated
+            logger.warning("Telegram message truncated due to length limit.")
+
+        url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
+        payload = {
+            'chat_id': self.chat_id,
+            'text': message,
+            'parse_mode': 'HTML', # Use HTML for formatting
+            'disable_web_page_preview': True # Often cleaner not to have previews
+        }
+        
+        logger.info(f"Attempting to send Telegram message to chat ID: {self.chat_id}")
+        # Log message content carefully - consider privacy if sensitive data might appear
+        # logger.debug(f"Message content: {message}") 
+        
         try:
-            logger.info(f"Attempting to send Telegram message to chat ID: {self.chat_id}")
-            logger.info(f"Message content: {message}")
+            response = requests.post(url, json=payload, timeout=10) # Add timeout
+            response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
             
-            response = requests.post(
-                f"{self.base_url}/sendMessage",
-                json={
-                    "chat_id": self.chat_id,
-                    "text": message,
-                    "parse_mode": "HTML",
-                    "disable_web_page_preview": True
-                }
-            )
-            
-            if response.status_code == 200:
-                logger.info("Telegram message sent successfully")
-                return True
+            # Check response content for success
+            response_data = response.json()
+            if response_data.get('ok'):
+                 logger.info("Telegram message sent successfully.")
+                 return True
             else:
-                logger.error(f"Telegram API error: {response.status_code} - {response.text}")
-                return False
-                
+                 error_desc = response_data.get('description', 'Unknown error')
+                 logger.error(f"Telegram API returned error: {error_desc}")
+                 return False
+
+        except requests.exceptions.Timeout:
+            logger.error("Request to Telegram API timed out.")
+            return False
+        except requests.exceptions.RequestException as e:
+            logger.error(f"Error sending Telegram message: {e}")
+            # Log response content if available and request failed
+            if e.response is not None:
+                logger.error(f"Telegram API Response Status: {e.response.status_code}")
+                try:
+                    logger.error(f"Telegram API Response Body: {e.response.text}")
+                except Exception:
+                    logger.error("Could not read Telegram API response body.")
+            return False
         except Exception as e:
-            logger.error(f"Failed to send Telegram message: {str(e)}")
+            logger.error(f"An unexpected error occurred sending Telegram message: {e}")
             return False
 
 class TourScraper:
