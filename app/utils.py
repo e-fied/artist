@@ -302,9 +302,8 @@ class TourScraper:
 
         try:
             logger.info(f"Using Firecrawl to scrape: {url}")
-            # Increase timeout if needed, e.g., pageOptions={'timeout': 60000} for 60s
-            # Set includeHtml to False if you only need markdown content
-            scraped_data = self.firecrawl.scrape(
+            # Correct the method name from .scrape to .scrape_url
+            scraped_data = self.firecrawl.scrape_url(
                 url=url,
                 params={'pageOptions': {'timeout': 45000, 'includeHtml': False}}
             )
