@@ -283,62 +283,40 @@ class TourScraper:
              self.ticketmaster = None # Ensure it's None on other init errors
 
     def scrape_url(self, url: str) -> Dict:
-        """
-        Scrapes a single URL using Firecrawl.
-
-        Returns:
-            A dictionary with:
-            - success (bool): True if scraping was successful AND content was retrieved.
-            - url (str): The URL that was scraped.
-            - content (Optional[str]): The scraped page content (markdown). None if failed or no content.
-            - error (Optional[str]): An error message if scraping failed or content was empty.
-        """
+        """Scrapes a single URL using Firecrawl."""
         result = {"success": False, "url": url, "content": None, "error": None}
-
-        if not self.firecrawl_api_key:
-            result["error"] = "Firecrawl API key not configured."
-            logger.error(result["error"])
+        if not self.firecrawl:
+            result["error"] = "Firecrawl client not configured (FIRECRAWL_API_KEY missing?)"
+            logger.warning(result["error"])
             return result
 
         try:
             logger.info(f"Using Firecrawl to scrape: {url}")
-            scraped_data = self.firecrawl.scrape_url(
-                url=url
-            )
+            # Make the API call (removed problematic params)
+            scraped_data = self.firecrawl.scrape_url(url=url)
 
-            # Check Firecrawl's explicit success flag or data presence
-            if not scraped_data or not scraped_data.get('success', False):
-                 # Firecrawl itself reported an error or returned empty
-                 error_detail = scraped_data.get('error', 'Unknown Firecrawl error or no data') if scraped_data else 'No data returned by Firecrawl'
-                 result["error"] = f"Firecrawl scrape failed: {error_detail}"
-                 logger.error(f"{result['error']} for url: {url}")
-                 return result
-
-            # Check if markdown content exists (Firecrawl might succeed but return no content)
-            markdown_content = scraped_data.get('markdown')
-            if not markdown_content:
-                result["error"] = "Firecrawl scrape successful, but no markdown content found."
-                logger.warning(f"{result['error']} for url: {url}")
-                # Keep success=False because we need content for the LLM
+            # Check if the scrape was successful AND if we got the markdown content
+            if scraped_data and scraped_data.get('markdown'): # <-- Check for 'markdown' key
+                result["success"] = True
+                result["content"] = scraped_data['markdown'] # <-- Extract from 'markdown' key
+                logger.info(f"Successfully scraped content from {url}")
+                return result
+            else:
+                # Log the structure if the check failed despite 200 OK
+                logger.error(f"Firecrawl scrape check failed for url: {url}. Response: {scraped_data}")
+                result["error"] = "Firecrawl scrape failed: Response missing expected 'markdown' data."
                 return result
 
-            # Success! We have content.
-            result["success"] = True
-            result["content"] = markdown_content
-            result["url"] = url # Include URL for context, though already present
-            logger.info(f"Firecrawl scrape successful for: {url}")
-            return result
-
         except requests.exceptions.HTTPError as e:
-             # Specific handling for HTTP errors from Firecrawl
-             result["error"] = f"Firecrawl API request failed: {str(e)}"
-             logger.error(f"{result['error']} for url: {url}") # Log HTTPError specifically
-             return result
+            # Specific handling for HTTP errors from Firecrawl
+            result["error"] = f"Firecrawl API request failed: {str(e)}"
+            logger.error(f"{result['error']} for url: {url}")
+            return result
         except Exception as e:
-             # Catch other exceptions during the scrape call
-             result["error"] = f"Exception during Firecrawl scrape: {str(e)}"
-             logger.error(f"{result['error']} for url: {url}", exc_info=True)
-             return result
+            # Catch other exceptions during the scrape call
+            result["error"] = f"Exception during Firecrawl scrape: {str(e)}"
+            logger.error(f"{result['error']} for url: {url}", exc_info=True)
+            return result
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         """Processes scraped data with the LLM to find tour dates."""
