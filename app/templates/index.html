@@ -60,25 +60,18 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if artist.last_checked %}
-                                <span class="text-secondary">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') }}</span>
-                                {% else %}
-                                <span class="text-secondary">Never</span>
-                                {% endif %}
+                                <span class="text-secondary small">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</span>
                             </td>
                             <td>
-                                <div class="btn-group">
-                                    <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-sm btn-outline-primary" title="Edit">
-                                        <i class="bi bi-pencil"></i>
-                                    </a>
-                                    <a href="{{ url_for('check_artist', id=artist.id) }}" class="btn btn-sm btn-outline-success check-button" title="Check Now">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('check_artist_route', id=artist.id) }}" class="btn btn-outline-success check-button" title="Check Now">
                                         <i class="bi bi-search"></i>
                                     </a>
-                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" 
-                                       class="btn btn-sm btn-outline-danger" 
-                                       onclick="return confirm('Are you sure you want to delete {{ artist.name }}?')"
-                                       title="Delete">
-                                        <i class="bi bi-trash"></i>
+                                    <a href="{{ url_for('edit_artist', id=artist.id) }}" class="btn btn-outline-primary" title="Edit">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    <a href="{{ url_for('delete_artist', id=artist.id) }}" class="btn btn-outline-danger" onclick="return confirm('Are you sure you want to delete {{ artist.name }}?');" title="Delete">
+                                        <i class="bi bi-trash3"></i>
                                     </a>
                                 </div>
                             </td>
@@ -193,4 +186,5 @@ window.addEventListener('beforeunload', function() {
     }
 });
 </script>
+{% endblock %}
 {% endblock %}
