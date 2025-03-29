@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container-fluid px-3 px-md-4 max-width-container">
+<div class="container-fluid px-2 px-md-3 max-width-container">
     <!-- Header Section -->
-    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-3">
         <div class="mb-3 mb-md-0">
             <h1 class="h2 mb-1">Artists</h1>
             <p class="text-secondary mb-0">Track tour dates for your favorite artists</p>
@@ -19,7 +19,7 @@
     </div>
 
     <!-- Artists List Card -->
-    <div class="card mb-4">
+    <div class="card mb-3">
         <div class="card-body p-0">
             <!-- Mobile View (Card-based) -->
             <div class="d-md-none">
@@ -112,7 +112,6 @@
                             <th>Cities</th>
                             <th class="sortable sort-asc" data-sort="status">Status <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="sortable" data-sort="date">Last Checked <i class="bi bi-arrow-down-up sort-icon"></i></th>
-                            <th class="sortable" data-sort="type">Type <i class="bi bi-arrow-down-up sort-icon"></i></th>
                             <th class="text-center">Actions</th>
                         </tr>
                     </thead>
@@ -167,13 +166,6 @@
                             </td>
                             <td>
                                 <span class="text-secondary small">{{ artist.last_checked.strftime('%Y-%m-%d %H:%M') if artist.last_checked else 'Never' }}</span>
-                            </td>
-                            <td>
-                                {% if artist.artist_type == 'comedy' %}
-                                <span class="badge bg-secondary">Comedy</span>
-                                {% else %}
-                                <span class="badge bg-secondary">Music</span>
-                                {% endif %}
                             </td>
                             <td class="text-center actions-column">
                                 <div class="btn-group btn-group-sm">
