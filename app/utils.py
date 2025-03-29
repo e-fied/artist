@@ -302,10 +302,8 @@ class TourScraper:
 
         try:
             logger.info(f"Using Firecrawl to scrape: {url}")
-            # Correct the method name from .scrape to .scrape_url
             scraped_data = self.firecrawl.scrape_url(
-                url=url,
-                params={'pageOptions': {'timeout': 45000, 'includeHtml': False}}
+                url=url
             )
 
             # Check Firecrawl's explicit success flag or data presence
@@ -331,11 +329,16 @@ class TourScraper:
             logger.info(f"Firecrawl scrape successful for: {url}")
             return result
 
+        except requests.exceptions.HTTPError as e:
+             # Specific handling for HTTP errors from Firecrawl
+             result["error"] = f"Firecrawl API request failed: {str(e)}"
+             logger.error(f"{result['error']} for url: {url}") # Log HTTPError specifically
+             return result
         except Exception as e:
-            # Catch exceptions during the scrape call (network issues, timeouts, etc.)
-            result["error"] = f"Exception during Firecrawl scrape: {str(e)}"
-            logger.error(f"{result['error']} for url: {url}", exc_info=True) # Log traceback for exceptions
-            return result
+             # Catch other exceptions during the scrape call
+             result["error"] = f"Exception during Firecrawl scrape: {str(e)}"
+             logger.error(f"{result['error']} for url: {url}", exc_info=True)
+             return result
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
         """Processes scraped data with the LLM to find tour dates."""
