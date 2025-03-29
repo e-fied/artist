@@ -72,47 +72,109 @@ class TicketmasterClient:
     
     def search_events(self, artist_name: str, cities: List[str]) -> List[Dict]:
         tour_dates = []
-        
-        for city in cities:
+        processed_locations = set() # Keep track of locations we've already processed (city or state)
+
+        for location in cities:
+            location = location.strip() # Remove leading/trailing whitespace
+            if not location or location.lower() in processed_locations:
+                continue # Skip empty entries or duplicates
+
             try:
-                # Search for events in each city
                 params = {
                     'apikey': self.api_key,
                     'keyword': artist_name,
-                    'city': city,
-                    'countryCode': 'US,CA',  # Limit to US and Canada
-                    'classificationName': 'music',  # Only music events
-                    'sort': 'date,asc'
+                    'classificationName': 'music', # Focus on music events
+                    'size': 100 # Get more results per page if needed
                 }
+
+                # Check if the location looks like a state/province code (e.g., 2 letters)
+                # You might want a more robust check depending on the codes you expect (e.g., length, characters)
+                is_state_code = len(location) == 2 and location.isalpha()
+
+                if is_state_code:
+                    params['stateCode'] = location
+                    search_description = f"state/province {location}"
+                else:
+                    params['city'] = location
+                    search_description = f"city {location}"
+                
+                logger.info(f"Searching Ticketmaster for '{artist_name}' in {search_description}")
                 
                 response = requests.get(self.base_url, params=params)
-                response.raise_for_status()
+                response.raise_for_status()  # Raise an exception for bad status codes (4xx or 5xx)
                 data = response.json()
-                
+
                 if '_embedded' in data and 'events' in data['_embedded']:
                     for event in data['_embedded']['events']:
-                        # Extract venue information
-                        venue = event['_embedded']['venues'][0]
-                        
-                        # Format the date
-                        date = event['dates']['start'].get('localDate')
-                        
-                        # Get ticket URL
-                        ticket_url = event.get('url', '')
-                        
-                        tour_dates.append({
-                            'city': venue['city']['name'],
-                            'venue': venue['name'],
-                            'date': date,
-                            'ticket_url': ticket_url,
-                            'source_url': ticket_url  # Use ticket URL as source for consistency
-                        })
-                
+                        event_name = event.get('name', '').lower()
+                        # Basic check if artist name is in event name
+                        if artist_name.lower() in event_name:
+                             # Extract venue, date, and URL
+                            venue_info = event.get('_embedded', {}).get('venues', [{}])[0]
+                            venue_name = venue_info.get('name', 'N/A')
+                            event_city = venue_info.get('city', {}).get('name', 'N/A')
+                            event_state = venue_info.get('state', {}).get('stateCode', '') # Get state code
+                            display_location = f"{event_city}, {event_state}" if event_state else event_city
+
+
+                            # Check if the event's city or state matches the searched location
+                            # This helps filter out events where the artist name matched but the location didn't 
+                            # (e.g., searching state=CA but event is in NV, but artist name matches)
+                            if not is_state_code and event_city.lower() != location.lower():
+                                continue # Skip if searching for a city and the event's city doesn't match
+                            if is_state_code and event_state.upper() != location.upper():
+                                continue # Skip if searching for a state and the event's state doesn't match
+
+
+                            # Find the start date - handle potential missing keys gracefully
+                            start_info = event.get('dates', {}).get('start', {})
+                            local_date = start_info.get('localDate')
+                            
+                            if local_date:
+                                try:
+                                    # Attempt to parse the date
+                                    date_obj = datetime.strptime(local_date, '%Y-%m-%d')
+                                    formatted_date = date_obj.strftime('%B %d, %Y') # e.g., July 26, 2024
+                                except ValueError:
+                                    formatted_date = local_date # Use original string if parsing fails
+                            else:
+                                formatted_date = 'Date not specified'
+
+                            ticket_url = event.get('url', '#')
+
+                            tour_dates.append({
+                                'artist': artist_name,
+                                'city': display_location, # Use combined city, state
+                                'venue': venue_name,
+                                'date': formatted_date,
+                                'ticket_url': ticket_url,
+                                'source': 'Ticketmaster'
+                            })
+                            logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
+
+                processed_locations.add(location.lower()) # Mark this location as processed
+
+            except requests.exceptions.RequestException as e:
+                logger.error(f"Error searching Ticketmaster for '{artist_name}' in {search_description}: {e}")
+            except ValueError as e:
+                 logger.error(f"Error processing Ticketmaster data for '{artist_name}' in {search_description}: {e}")
             except Exception as e:
-                logger.error(f"Error searching Ticketmaster for {artist_name} in {city}: {str(e)}")
-                continue
+                 logger.error(f"An unexpected error occurred during Ticketmaster search for {artist_name} in {search_description}: {e}")
+
+
+        # Remove duplicates based on venue, date, and city - Ticketmaster sometimes returns variations
+        unique_dates = []
+        seen_dates = set()
+        for date in tour_dates:
+            # Create a unique key for each event instance
+            # Using city in the key ensures events in different cities aren't marked as duplicates
+            date_key = (date['venue'].lower(), date['date'], date['city'].lower())
+            if date_key not in seen_dates:
+                unique_dates.append(date)
+                seen_dates.add(date_key)
         
-        return tour_dates
+        logger.info(f"Found {len(unique_dates)} unique potential dates for '{artist_name}' via Ticketmaster across specified locations.")
+        return unique_dates
 
 class TelegramNotifier:
     def __init__(self):
