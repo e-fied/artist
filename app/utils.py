@@ -248,6 +248,22 @@ class TelegramNotifier:
             logger.error(f"An unexpected error occurred sending Telegram message: {e}")
             return False
 
+    def send_scrape_error_notification(self, artist_name: str, url: str, error_description: str = "Detected error page (e.g., 404 Not Found)"):
+        """Sends a notification about a potential scraping error for a specific URL."""
+        if not self.is_configured():
+            logger.warning(f"Telegram is not configured. Skipping scrape error notification for {artist_name} at {url}")
+            return False
+
+        message = (
+            f"⚠️ <b>Scraping Issue Detected</b> ⚠️\n\n"
+            f"Artist: <b>{artist_name}</b>\n"
+            f"URL: {url}\n\n"
+            f"Issue: <i>{error_description}</i>\n\n"
+            f"Please check if the URL is correct or if the website content/structure has changed significantly."
+        )
+        logger.info(f"Sending scraping error notification for {artist_name} - URL: {url}")
+        return self.send_message(message)
+
 class TourScraper:
     def __init__(self):
         self.settings = Settings.get_settings()
