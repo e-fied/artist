@@ -11,6 +11,7 @@ from firecrawl import FirecrawlApp
 import os
 import pytz
 from pathlib import Path
+import google.generativeai as genai
 
 # Configure logging
 log_dir = Path('/app/data/logs')
