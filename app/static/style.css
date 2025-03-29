@@ -624,6 +624,50 @@ body {
         position: sticky;
         top: 0;
         z-index: 10;
+        white-space: nowrap;
+        padding: 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    .table td {
+        padding: 0.8rem;
+        font-size: 0.9rem;
+    }
+    
+    /* Set column widths */
+    .table th:nth-child(1), .table td:nth-child(1) { /* Name column */
+        width: 20%;
+        max-width: 220px;
+    }
+    
+    .table th:nth-child(2), .table td:nth-child(2) { /* Cities column */
+        width: 30%;
+    }
+    
+    .table th:nth-child(3), .table td:nth-child(3) { /* Status column */
+        width: 12%;
+        white-space: nowrap;
+    }
+    
+    .table th:nth-child(4), .table td:nth-child(4) { /* Last Checked column */
+        width: 18%;
+        white-space: nowrap;
+    }
+    
+    .table th:nth-child(5), .table td:nth-child(5) { /* Type column */
+        width: 10%;
+        white-space: nowrap;
+    }
+    
+    .table th:nth-child(6), .table td:nth-child(6) { /* Actions column */
+        width: 10%;
+        min-width: 120px;
+    }
+    
+    /* Constrain table width */
+    .table-responsive {
+        max-width: 1200px;
+        margin: 0 auto;
     }
 }
 
@@ -781,4 +825,37 @@ tr[data-artist-type="music"],
 td .badge {
     font-size: 0.85rem;
     padding: 0.45rem 0.75rem;
+}
+
+/* Container max width for desktop */
+.max-width-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Improve table cell content handling */
+.table .artist-name {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
+}
+
+.table .badge {
+    white-space: nowrap;
+}
+
+/* Make smaller badges for locations in desktop */
+@media (min-width: 768px) {
+    .table .badge.bg-secondary {
+        font-size: 0.75rem;
+        padding: 0.35rem 0.65rem;
+    }
+    
+    /* Limit number of location badges visible */
+    .table td:nth-child(2) .d-flex.flex-wrap {
+        max-width: 100%;
+        overflow: hidden;
+    }
 }
