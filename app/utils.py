@@ -83,7 +83,6 @@ class TicketmasterClient:
                 params = {
                     'apikey': self.api_key,
                     'keyword': artist_name,
-                    'classificationName': 'music', # Focus on music events
                     'size': 100 # Get more results per page if needed
                 }
 
