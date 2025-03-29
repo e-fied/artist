@@ -255,15 +255,15 @@ class TourScraper:
         # Configure Gemini
         if self.gemini_api_key:
              genai.configure(api_key=self.gemini_api_key)
-             # Correct the model name here
-             self.model = genai.GenerativeModel('gemini-1.5-flash-lite')
-             logger.info("Gemini configured successfully.")
+             # Change the model name back to 'gemini-2.0-flash-latest'
+             self.model = genai.GenerativeModel('gemini-2.0-flash-lite')
+             logger.info("Gemini configured successfully with gemini-2.0-flash-lite.")
         else:
              logger.warning("GEMINI_API_KEY not found. LLM processing will be skipped.")
              self.model = None # Set model to None if not configured
 
         # Store the Firecrawl API key as an attribute
-        self.firecrawl_api_key = os.getenv('FIRECRAWL_API_KEY') # <-- Store the key
+        self.firecrawl_api_key = os.getenv('FIRECRAWL_API_KEY')
         if self.firecrawl_api_key:
             self.firecrawl = FirecrawlApp(api_key=self.firecrawl_api_key)
             logger.info("Firecrawl configured successfully.")
