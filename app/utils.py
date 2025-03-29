@@ -253,70 +253,83 @@ class TourScraper:
             return None
 
     def process_with_llm(self, scraped_data: Dict, artist: Artist) -> List[Dict]:
-        try:
-            prompt = f"""Extract tour dates from this content for {artist.name} in these cities: {artist.cities}
-            
-Content:
-{scraped_data['content']}
-
-Return ONLY a JSON array containing tour dates in this exact format, with no markdown formatting or other text:
-[
-    {{
-        "city": "City name",
-        "venue": "Venue name",
-        "date": "YYYY-MM-DD",
-        "ticket_url": "URL to tickets"
-    }}
-]
-
-Only include dates in the specified cities. If no dates are found, return an empty array []."""
-
-            # Make the API call with structured output configuration
-            response = self.model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0,  # Use 0 for maximum accuracy
-                    top_p=0.95,
-                    top_k=40,
-                    max_output_tokens=8192,
-                ),
-                stream=False
-            )
-            
-            # Log the raw response for debugging
-            logger.info(f"Raw LLM Response: {response.text}")
-            
-            try:
-                # Clean the response text by removing markdown code blocks
-                cleaned_text = response.text
-                if cleaned_text.startswith('```'):
-                    # Remove opening markdown
-                    cleaned_text = cleaned_text.split('\n', 1)[1]
-                if cleaned_text.endswith('```'):
-                    # Remove closing markdown
-                    cleaned_text = cleaned_text.rsplit('\n', 1)[0]
-                # Remove any "json" or other language specifier
-                cleaned_text = cleaned_text.replace('json\n', '')
-                
-                # Parse the cleaned JSON
-                tour_dates = json.loads(cleaned_text)
-                if not isinstance(tour_dates, list):
-                    logger.error("LLM response is not a list")
-                    return []
-                
-                # Log successful parsing
-                logger.info(f"Successfully parsed {len(tour_dates)} tour dates")
-                return tour_dates
-            except Exception as e:
-                logger.error(f"Failed to parse LLM response: {e}")
-                logger.error(f"Raw content that failed to parse: {response.text}")
-                return []
-                
-        except Exception as e:
-            logger.error(f"Failed to process data with LLM: {str(e)}")
+        """Processes scraped data with the LLM to find tour dates."""
+        if not self.gemini_api_key:
+            logger.error("Gemini API key not configured. Cannot process with LLM.")
             return []
 
-    def check_artist(self, artist: Artist) -> List[Dict]:
+        # Extract the raw list of locations the user entered
+        user_locations = [loc.strip() for loc in artist.cities.split(',') if loc.strip()]
+        locations_string = ", ".join(user_locations) # e.g., "New York, Los Angeles, CA, BC"
+
+        prompt = f"""
+        Analyze the following text scraped from {scraped_data['url']} for the artist "{artist.name}".
+
+        The user is tracking tour dates based on this list of locations: {locations_string}.
+        This list may contain specific city names (e.g., "Los Angeles") or 2-letter state/province codes (e.g., "CA", "BC").
+
+        Your task is to extract all tour dates mentioned in the text that match EITHER:
+        1. A specific city name listed by the user.
+        2. Any city located within a state or province code listed by the user.
+        3. Optionally, if the text explicitly mentions an event in a city immediately surrounding one of the user's specified cities (e.g., Anaheim near Los Angeles), include that too. Only include these nearby cities if clearly stated on the page.
+
+        For each valid tour date found according to these rules, provide the following information in JSON format: city (including state/province, e.g., "Los Angeles, CA"), venue, date (YYYY-MM-DD), and ticket_url (if available, otherwise use '#').
+
+        If no relevant tour dates are found based on the user's location list and the surrounding city rule, return an empty JSON array `[]`.
+
+        Scraped text:
+        ```markdown
+        {scraped_data['content']}
+        ```
+
+        Respond ONLY with the JSON array.
+        """
+
+        try:
+            logger.info(f"Sending request to Gemini for {artist.name} based on locations: {locations_string}")
+            response = self.model.generate_content(prompt)
+
+            # Clean the response: remove backticks and 'json' identifier
+            cleaned_response = response.text.strip().removeprefix('```json').removesuffix('```').strip()
+            logger.info(f"Raw LLM Response for {artist.name}: {cleaned_response}") # Log cleaned response
+
+            # Attempt to parse the cleaned JSON response
+            try:
+                tour_dates = json.loads(cleaned_response)
+                # Basic validation: ensure it's a list
+                if not isinstance(tour_dates, list):
+                    logger.error(f"LLM response for {artist.name} was not a JSON list: {cleaned_response}")
+                    return []
+
+                # Further validation: ensure items are dicts with expected keys (optional but good)
+                validated_dates = []
+                for item in tour_dates:
+                    if isinstance(item, dict) and 'city' in item and 'venue' in item and 'date' in item:
+                        # Ensure ticket_url exists, defaulting to '#'
+                        item['ticket_url'] = item.get('ticket_url', '#')
+                        validated_dates.append(item)
+                    else:
+                        logger.warning(f"Skipping invalid item in LLM response for {artist.name}: {item}")
+                
+                logger.info(f"Successfully parsed {len(validated_dates)} tour dates for {artist.name} from LLM.")
+                return validated_dates
+
+            except json.JSONDecodeError as e:
+                logger.error(f"Failed to parse LLM JSON response for {artist.name}: {e}")
+                logger.error(f"Raw content that failed parsing: {cleaned_response}")
+                return []
+            except Exception as e:
+                logger.error(f"Unexpected error parsing LLM response for {artist.name}: {e}")
+                return []
+
+        except Exception as e:
+            logger.error(f"Failed to generate content with LLM for {artist.name}: {str(e)}")
+            # Log specific Gemini API errors if possible
+            if hasattr(e, 'response'):
+                 logger.error(f"Gemini API Error Details: {e.response}")
+            return []
+
+    def check_artist(self, artist: Artist, notifier: TelegramNotifier) -> List[Dict]:
         logger.info(f"Starting check for artist: {artist.name}")
         
         if artist.on_hold:
@@ -325,7 +338,7 @@ Only include dates in the specified cities. If no dates are found, return an emp
 
         all_found_dates = [] # Store results from all sources here
         cities = [city.strip() for city in artist.cities.split(',') if city.strip()]
-        scrape_errors = []
+        scrape_error_messages = []
         
         # 1. Check Ticketmaster if enabled
         if artist.use_ticketmaster and self.ticketmaster:
@@ -335,9 +348,9 @@ Only include dates in the specified cities. If no dates are found, return an emp
                 logger.info(f"Found {len(tm_dates)} dates on Ticketmaster for {artist.name}")
                 all_found_dates.extend(tm_dates) # Add Ticketmaster results
             except Exception as e:
-                error_msg = f"Error checking Ticketmaster for {artist.name}: {str(e)}"
-                logger.error(error_msg)
-                scrape_errors.append({"url": "Ticketmaster API", "error": str(e)})
+                error_msg = f"Error checking Ticketmaster API: {str(e)}"
+                logger.error(f"{error_msg} for {artist.name}")
+                scrape_error_messages.append(f"• Ticketmaster API: {str(e)}") # Add formatted error
 
         # 2. Check URLs if provided (regardless of Ticketmaster results)
         if artist.urls: # Check if the urls field is not empty
@@ -350,25 +363,40 @@ Only include dates in the specified cities. If no dates are found, return an emp
                         logger.info(f"Scraping URL: {url}")
                         scraped_data = self.scrape_url(url)
                         
-                        if scraped_data:
+                        if scraped_data and scraped_data.get('content'): # Check if content exists
                             logger.info(f"Successfully scraped data from {url}")
                             logger.info(f"Sending data to LLM for processing for {artist.name}...")
                             llm_dates = self.process_with_llm(scraped_data, artist)
                             logger.info(f"LLM processing complete for {artist.name}. Found {len(llm_dates)} dates from {url}")
-                            # Add source URL to each tour date from LLM
+                            # Add source URL and type to each tour date from LLM
                             for date in llm_dates:
                                 date['source_url'] = url
                                 date['source'] = 'Web Scrape/LLM' # Add source type
                             all_found_dates.extend(llm_dates) # Add LLM results
-                        else:
-                            error_msg = f"Failed to scrape data from {url} for {artist.name}"
-                            logger.warning(error_msg) # Use warning for failed scrapes unless it's an exception
-                            scrape_errors.append({"url": url, "error": "Failed to scrape data"})
-                            
+                        # Handle cases where scrape_url returned data but no content, or returned None
+                        elif scraped_data and not scraped_data.get('content'):
+                             error_msg = f"Scraped data from {url} but found no content."
+                             logger.warning(f"{error_msg} for {artist.name}")
+                             scrape_error_messages.append(f"• {url}: Scraped but no content found.")
+                        else: # scraped_data is None
+                            error_msg = f"Failed to scrape data from {url}"
+                            logger.warning(f"{error_msg} for {artist.name}") # Use warning for failed scrapes unless it's an exception
+                            scrape_error_messages.append(f"• {url}: Failed to scrape data.")
+
                     except Exception as e:
-                        error_msg = f"Error processing {url} for {artist.name}: {str(e)}"
-                        logger.error(error_msg)
-                        scrape_errors.append({"url": url, "error": str(e)})
+                        # Catch exceptions during scraping OR LLM processing for this URL
+                        error_msg = f"Error processing {url}: {str(e)}"
+                        logger.error(f"{error_msg} for {artist.name}")
+                        scrape_error_messages.append(f"• {url}: {str(e)}")
+
+        # --- Add Error Notification Block ---
+        if scrape_error_messages:
+            logger.warning(f"Encountered {len(scrape_error_messages)} errors while checking sources for {artist.name}.")
+            error_notification = f"⚠️ <b>Problems checking sources for {artist.name}:</b>\n\n"
+            error_notification += "\n".join(scrape_error_messages)
+            # Send the error notification immediately
+            notifier.send_message(error_notification)
+        # --- End Error Notification Block ---
 
         # 3. De-duplicate combined results
         # Use a more robust key for deduplication: (artist, lowercase venue, date, lowercase city)
@@ -397,9 +425,7 @@ Only include dates in the specified cities. If no dates are found, return an emp
             db.session.commit()
             logger.info(f"Updated last_checked for {artist.name}")
         except NameError:
-             logger.error("Timezone 'America/Vancouver' not defined. Cannot set last_checked.")
-             # Handle case where vancouver_tz might not be defined in this scope
-             # You might need to import pytz and define vancouver_tz within this method or pass it
+             logger.error("Timezone 'America/Vancouver' not defined (ensure pytz is imported and installed). Cannot set last_checked.")
         except Exception as e:
             logger.error(f"Failed to update last_checked for {artist.name}: {e}")
             db.session.rollback() # Rollback if commit fails
@@ -407,56 +433,92 @@ Only include dates in the specified cities. If no dates are found, return an emp
 
         logger.info(f"Check complete for {artist.name}. Found {len(unique_dates)} unique total tour dates after deduplication.")
 
-        # Optionally include scrape errors in the return or handle them differently
-        # For now, just returning the unique dates
+        # Return only the unique dates found. Errors are handled via notification.
         return unique_dates
 
 def check_all_artists():
-    notifier = TelegramNotifier()
-    scraper = TourScraper()
-    
-    artists = Artist.query.filter_by(on_hold=False).all()
-    for artist in artists:
+    with app.app_context(): # Ensure we are within app context for DB access
+        logger.info("Starting scheduled check for all artists...")
+        # Instantiate notifier and scraper once
+        notifier = TelegramNotifier()
+        scraper = TourScraper()
+
         try:
-            tour_dates = scraper.check_artist(artist)
-            if tour_dates:
-                # Format the message with HTML styling
-                message = f"🎵 <b>New tour dates found for {artist.name}!</b>\n\n"
-                
-                # Add source URLs at the top
-                source_urls = list(set(date['source_url'] for date in tour_dates))
-                message += "🔍 <b>Source Pages:</b>\n"
-                for url in source_urls:
-                    message += f"• <a href='{url}'>{url}</a>\n"
-                message += "\n"
-                
-                # Group dates by city
-                dates_by_city = {}
-                for date in tour_dates:
-                    city = date['city']
-                    if city not in dates_by_city:
-                        dates_by_city[city] = []
-                    dates_by_city[city].append(date)
-                
-                # Format message by city
-                for city, dates in dates_by_city.items():
-                    message += f"📍 <b>{city}</b>\n"
-                    for date in dates:
-                        message += (
-                            f"• {date['venue']}\n"
-                            f"  📅 {date['date']}\n"
-                            f"  🎟 <a href='{date['ticket_url']}'>Get Tickets</a>\n\n"
-                        )
-                
-                logger.info(f"Sending notification for {len(tour_dates)} dates")
-                success = notifier.send_message(message)
-                if success:
-                    logger.info("Notification sent successfully")
-                else:
-                    logger.error("Failed to send notification")
-            else:
-                logger.info(f"No tour dates found for {artist.name}")
+            artists = Artist.query.filter_by(on_hold=False).all()
+            if not artists:
+                logger.info("No active artists found to check.")
+                return
+
+            logger.info(f"Found {len(artists)} active artists to check.")
+
+            for artist in artists:
+                try:
+                    # Pass the notifier instance here
+                    tour_dates = scraper.check_artist(artist, notifier)
+
+                    if tour_dates:
+                        # --- Success Notification Logic ---
+                        # (This part remains largely the same, formats the success message)
+                        message = f"🎵 <b>New tour dates found for {artist.name}!</b>\n\n"
+                        # Add source URLs (deduplicated)
+                        source_urls = sorted(list(set(
+                            date['source_url'] for date in tour_dates if 'source_url' in date
+                        )))
+                        if source_urls:
+                             message += "🔍 <b>Source(s):</b>\n"
+                             for url in source_urls:
+                                 # Try to determine source type for better labeling
+                                 source_type = "Unknown"
+                                 # Find the first date associated with this URL to guess source type
+                                 first_date_for_url = next((d for d in tour_dates if d.get('source_url') == url), None)
+                                 if first_date_for_url:
+                                     source_type = first_date_for_url.get('source', 'Unknown')
+
+                                 label = "Ticketmaster Event Page" if source_type == "Ticketmaster" else url
+                                 message += f"• <a href='{url}'>{label}</a> ({source_type})\n"
+                             message += "\n"
+
+                        # Group dates by city
+                        dates_by_city = {}
+                        for date in tour_dates:
+                            city = date.get('city', 'Unknown City')
+                            if city not in dates_by_city:
+                                dates_by_city[city] = []
+                            dates_by_city[city].append(date)
+
+                        # Format message by city
+                        for city, dates in sorted(dates_by_city.items()): # Sort cities alphabetically
+                            message += f"📍 <b>{city}</b>\n"
+                            # Sort dates within city (requires consistent date format or parsing)
+                            # Simple sort for now, assuming YYYY-MM-DD or Month D, YYYY
+                            sorted_dates = sorted(dates, key=lambda x: x.get('date', ''))
+                            for date_info in sorted_dates:
+                                venue = date_info.get('venue', 'Unknown Venue')
+                                date_str = date_info.get('date', 'Unknown Date')
+                                ticket_url = date_info.get('ticket_url', '#')
+                                message += (
+                                    f"  • {venue}\n"
+                                    f"    📅 {date_str}\n"
+                                    # Only show ticket link if URL is not '#'
+                                    f"{'    🎟 <a href=\"' + ticket_url + '\">Get Tickets</a>\n' if ticket_url != '#' else ''}\n"
+                                )
+                        # Send the success notification
+                        logger.info(f"Sending success notification for {len(tour_dates)} dates for {artist.name}")
+                        if not notifier.send_message(message):
+                             logger.error(f"Failed to send success notification for {artist.name}")
+                        # --- End Success Notification Logic ---
+                    else:
+                        logger.info(f"No new tour dates found for {artist.name} during this check.")
+
+                except Exception as e:
+                    # Catch errors during the check for a *specific* artist
+                    logger.error(f"❌ Unexpected error checking artist {artist.name}: {e}", exc_info=True)
+                    # Send a specific error message for this artist check failure
+                    notifier.send_message(f"❌ Failed to complete check for artist {artist.name}. Error: {e}")
+
         except Exception as e:
-            error_message = f"❌ Error checking artist {artist.name}: {str(e)}"
-            logger.error(error_message)
-            notifier.send_message(error_message) 
+            # Catch errors related to fetching artists or general setup
+            logger.error(f"❌ Failed to run scheduled check: {e}", exc_info=True)
+            notifier.send_message(f"❌ Failed to run scheduled artist check. Error: {e}")
+
+        logger.info("Scheduled check for all artists completed.") 

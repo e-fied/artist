@@ -105,64 +105,99 @@ def settings():
     return render_template('settings.html', settings=settings)
 
 @app.route('/check_artist/<int:id>')
-def check_artist(id):
+def check_artist_route(id):
     try:
         artist = Artist.query.get_or_404(id)
-        log_message(f'Starting check for artist: {artist.name}', 'info')
-        
+        log_message(f'Starting manual check for artist: {artist.name}', 'info')
+        flash(f'Checking artist: {artist.name}... This may take a moment.', 'info')
+
+        # Instantiate scraper and notifier
         scraper = TourScraper()
         notifier = TelegramNotifier()
-        
-        tour_dates = scraper.check_artist(artist)
-        
+
+        # Pass notifier to the check_artist method
+        tour_dates = scraper.check_artist(artist, notifier)
+
+        # --- Success Notification/Flash Message Logic ---
         if tour_dates:
-            message = f"🎵 <b>New tour dates found for {artist.name}!</b>\n\n"
-            
-            dates_by_city = {}
-            for date in tour_dates:
-                city = date['city']
-                if city not in dates_by_city:
-                    dates_by_city[city] = []
-                dates_by_city[city].append(date)
-            
-            for city, dates in dates_by_city.items():
-                message += f"📍 <b>{city}</b>\n"
-                for date in dates:
-                    message += (
-                        f"• {date['venue']}\n"
-                        f"  📅 {date['date']}\n"
-                        f"  🎟 <a href='{date['ticket_url']}'>Get Tickets</a>\n\n"
-                    )
-            
-            if notifier.send_message(message):
-                log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
-                flash(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
+            # Format message for Telegram (only if Telegram is configured)
+            if notifier.is_configured():
+                 message = f"🎵 <b>New tour dates found for {artist.name}!</b> (Manual Check)\n\n"
+                 # (Add the same detailed formatting as in check_all_artists)
+                 # Add source URLs (deduplicated)
+                 source_urls = sorted(list(set(
+                     date['source_url'] for date in tour_dates if 'source_url' in date
+                 )))
+                 if source_urls:
+                      message += "🔍 <b>Source(s):</b>\n"
+                      for url in source_urls:
+                          first_date_for_url = next((d for d in tour_dates if d.get('source_url') == url), None)
+                          source_type = "Unknown"
+                          if first_date_for_url:
+                              source_type = first_date_for_url.get('source', 'Unknown')
+                          label = "Ticketmaster Event Page" if source_type == "Ticketmaster" else url
+                          message += f"• <a href='{url}'>{label}</a> ({source_type})\n"
+                      message += "\n"
+
+                 # Group dates by city
+                 dates_by_city = {}
+                 for date in tour_dates:
+                     city = date.get('city', 'Unknown City')
+                     if city not in dates_by_city:
+                         dates_by_city[city] = []
+                     dates_by_city[city].append(date)
+
+                 # Format message by city
+                 for city, dates in sorted(dates_by_city.items()):
+                     message += f"📍 <b>{city}</b>\n"
+                     sorted_dates = sorted(dates, key=lambda x: x.get('date', ''))
+                     for date_info in sorted_dates:
+                         venue = date_info.get('venue', 'Unknown Venue')
+                         date_str = date_info.get('date', 'Unknown Date')
+                         ticket_url = date_info.get('ticket_url', '#')
+                         message += (
+                             f"  • {venue}\n"
+                             f"    📅 {date_str}\n"
+                             f"{'    🎟 <a href=\"' + ticket_url + '\">Get Tickets</a>\n' if ticket_url != '#' else ''}\n"
+                         )
+
+                 if notifier.send_message(message):
+                     log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
+                     flash(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
+                 else:
+                     log_message(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
+                     flash(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification (check logs/settings).', 'warning')
             else:
-                log_message(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
-                flash(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
+                 # If Telegram isn't configured, just flash a success message
+                 log_message(f'Found {len(tour_dates)} tour dates for {artist.name}. Telegram not configured.', 'success')
+                 flash(f'Found {len(tour_dates)} tour dates for {artist.name}. (Telegram not configured)', 'success')
         else:
-            log_message(f'No tour dates found for {artist.name} in the specified cities.', 'info')
-            flash(f'No tour dates found for {artist.name} in the specified cities.', 'info')
-            
+            # No tour dates found, this is not an error, just an outcome.
+            # The check_artist method already sent notifications for scrape *errors*.
+            log_message(f'No new tour dates found for {artist.name} in the specified locations.', 'info')
+            flash(f'No new tour dates found for {artist.name} matching the criteria.', 'info')
+
     except Exception as e:
-        error_msg = f'Error checking tour dates: {str(e)}'
-        log_message(error_msg, 'error')
-        flash(error_msg, 'error')
-        logger.error(f"Error in check_artist route: {str(e)}")
-    
-    return redirect(url_for('index'))
+        # Catch unexpected errors during the route execution
+        logger.error(f"Error in /check_artist/{id} route: {e}", exc_info=True)
+        log_message(f"Error checking artist {id}: {e}", 'error')
+        flash(f"An error occurred while checking the artist: {e}", 'danger')
+
+    return redirect(url_for('index')) # Redirect back to the main page regardless of outcome
 
 @app.route('/check_all')
-def check_all():
+def check_all_artists_route():
+    log_message('Starting manual check for all artists...', 'info')
+    flash('Checking all artists... This may take some time.', 'info')
     try:
-        log_message('Starting check for all artists...', 'info')
-        check_all_artists()
-        log_message('Completed checking all artists!', 'success')
-        flash('Checked all artists for tour dates!', 'success')
+        check_all_artists() # Call the utility function
+        log_message('Manual check for all artists completed.', 'info')
+        # Flash message for completion will be handled by individual artist checks or the final log
     except Exception as e:
-        error_msg = f'Error checking all artists: {str(e)}'
-        log_message(error_msg, 'error')
-        flash(error_msg, 'error')
+        logger.error(f"Error in /check_all route: {e}", exc_info=True)
+        log_message(f"Error during manual check all: {e}", 'error')
+        flash(f"An error occurred during the check all process: {e}", 'danger')
+
     return redirect(url_for('index'))
 
 @app.route('/delete_artist/<int:id>')
