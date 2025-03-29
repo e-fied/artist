@@ -117,29 +117,34 @@ class TicketmasterClient:
                 logger.debug(f"Processing {len(events)} events found for {search_description}.")
 
                 for event in events:
-                    event_name = event.get('name', '').lower()
-                    # Basic check if artist name is in event name
-                    if artist_name.lower() in event_name:
-                         # Extract venue, date, and URL
-                        venue_info = event.get('_embedded', {}).get('venues', [{}])[0]
-                        venue_name = venue_info.get('name', 'N/A')
-                        event_city = venue_info.get('city', {}).get('name', 'N/A')
-                        event_state = venue_info.get('state', {}).get('stateCode', '') # Get state code
-                        display_location = f"{event_city}, {event_state}" if event_state else event_city
+                    event_name = event.get('name', '')
+                    venue_info = event.get('_embedded', {}).get('venues', [{}])[0]
+                    venue_name = venue_info.get('name', 'Venue not specified')
+                    city_name = venue_info.get('city', {}).get('name', '')
+                    state_code = venue_info.get('state', {}).get('stateCode', '')
+                    state_name = venue_info.get('state', {}).get('name', '') # Get full state name too
+                    country_code = venue_info.get('country', {}).get('countryCode', '')
 
+                    # --- Normalize names for comparison ---
+                    # Remove common punctuation and make lowercase
+                    normalized_artist_name = ''.join(c for c in artist_name if c.isalnum() or c.isspace()).lower().strip()
+                    normalized_event_name = ''.join(c for c in event_name if c.isalnum() or c.isspace()).lower().strip()
 
-                        # Check if the event's city or state matches the searched location
-                        # This helps filter out events where the artist name matched but the location didn't 
-                        # (e.g., searching state=CA but event is in NV, but artist name matches)
-                        if not len(location) == 2 and location.isalpha() and event_city.lower() != location.lower():
-                            continue # Skip if searching for a city and the event's city doesn't match
-                        if len(location) == 2 and location.isalpha() and event_state.upper() != location.upper():
-                            continue # Skip if searching for a state and the event's state doesn't match
+                    # --- Use normalized names for the check ---
+                    # Check if the core artist name is in the event name
+                    # Split artist name into words in case event name has extra words (e.g., "Artist Name presents...")
+                    artist_name_words = normalized_artist_name.split()
+                    if all(word in normalized_event_name for word in artist_name_words):
+                    # Original simpler check (might be too strict):
+                    # if normalized_artist_name in normalized_event_name:
+                    # ---------------------------------------
 
+                        # Location Matching (Combine city and state/province)
+                        display_location_parts = [city_name, state_code if state_code else state_name]
+                        display_location = ", ".join(filter(None, display_location_parts)) # Filter out empty parts
 
-                        # Find the start date - handle potential missing keys gracefully
-                        start_info = event.get('dates', {}).get('start', {})
-                        local_date = start_info.get('localDate')
+                        # Date formatting
+                        local_date = event.get('dates', {}).get('start', {}).get('localDate')
                         
                         if local_date:
                             try:
@@ -163,6 +168,8 @@ class TicketmasterClient:
                             'source_url': ticket_url
                         })
                         logger.debug(f"Found potential date: {venue_name} in {display_location} on {formatted_date}")
+                    else: # Log skipped events for debugging
+                        logger.debug(f"Skipping event: Name '{event_name}' did not sufficiently match artist '{artist_name}' after normalization ('{normalized_artist_name}' vs '{normalized_event_name}')")
 
                 processed_locations.add(location.lower()) # Mark this location as processed
 
