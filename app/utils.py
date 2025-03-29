@@ -31,7 +31,7 @@ console_handler.setFormatter(logging.Formatter(
 
 # Setup root logger
 logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+logger.setLevel(logging.DEBUG)
 logger.addHandler(file_handler)
 logger.addHandler(console_handler)
 
