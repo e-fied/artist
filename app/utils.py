@@ -384,7 +384,7 @@ class TourScraper:
         Your task is to extract all tour dates mentioned in the text that match EITHER:
         1. A specific city name listed by the user.
         2. Any city located within a state or province code listed by the user.
-        3. Optionally, if the text explicitly mentions an event in a city immediately surrounding one of the user's specified cities (e.g., Anaheim near Los Angeles), include that too. Only include these nearby cities if clearly stated on the page.
+        3. Optionally, if the text explicitly mentions an event in a city immediately surrounding one of the user's specified cities, within the same Country, State, or Province (e.g., Anaheim near Los Angeles), include that too. Only include these nearby cities if clearly stated on the page.
 
         For each valid tour date found according to these rules, provide the following information in JSON format: city (including state/province, e.g., "Los Angeles, CA"), venue, date (YYYY-MM-DD), and ticket_url (if available, otherwise use '#').
 
