@@ -18,5 +18,3 @@ services:
       - "com.centurylinklabs.watchtower.enable=true"
       - "com.centurylinklabs.watchtower.monitor-only=false"
       - "com.centurylinklabs.watchtower.schedule=0 0 * * * *" 
-
-      

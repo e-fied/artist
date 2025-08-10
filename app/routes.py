@@ -179,64 +179,16 @@ def check_artist_route(id):
 
         # --- Success Notification/Flash Message Logic ---
         if tour_dates:
-            # Format message for Telegram (only if Telegram is configured)
             if notifier.is_configured():
-                 message = f"🎵 <b>New tour dates found for {artist.name}!</b> (Manual Check)\n\n"
-                 # (Add the same detailed formatting as in check_all_artists)
-                 # Add source URLs (deduplicated)
-                 source_urls = sorted(list(set(
-                     date['source_url'] for date in tour_dates if 'source_url' in date
-                 )))
-                 if source_urls:
-                      message += "🔍 <b>Source(s):</b>\n"
-                      for url in source_urls:
-                          first_date_for_url = next((d for d in tour_dates if d.get('source_url') == url), None)
-                          source_type = "Unknown"
-                          if first_date_for_url:
-                              source_type = first_date_for_url.get('source', 'Unknown')
-                          label = "Ticketmaster Event Page" if source_type == "Ticketmaster" else url
-                          message += f"• <a href='{url}'>{label}</a> ({source_type})\n"
-                      message += "\n"
-
-                 # Group dates by city
-                 dates_by_city = {}
-                 for date in tour_dates:
-                     city = date.get('city', 'Unknown City')
-                     if city not in dates_by_city:
-                         dates_by_city[city] = []
-                     dates_by_city[city].append(date)
-
-                 # Format message by city
-                 for city, dates in sorted(dates_by_city.items()):
-                     message += f"📍 <b>{city}</b>\n"
-                     sorted_dates = sorted(dates, key=lambda x: x.get('date', ''))
-                     for date_info in sorted_dates:
-                         venue = date_info.get('venue', 'Unknown Venue')
-                         date_str = date_info.get('date', 'Unknown Date')
-                         ticket_url = date_info.get('ticket_url', '#')
-                         message += (
-                             f"  • {venue}\n"
-                             f"    📅 {date_str}\n"
-                         )
-                         # Conditionally add the ticket link line
-                         if ticket_url != '#':
-                             # Use an f-string here, ensuring quotes are handled correctly
-                             # Using double quotes for the outer f-string allows single quotes inside easily
-                             # Or escape the double quotes for the href attribute if needed.
-                             message += f"    🎟 <a href=\"{ticket_url}\">Get Tickets</a>\n"
-                         # Add the final newline that was previously part of the conditional f-string
-                         message += "\n"
-
-                 if notifier.send_message(message):
-                     log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
-                     flash(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
-                 else:
-                     log_message(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
-                     flash(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification (check logs/settings).', 'warning')
+                if notifier.send_tour_dates(artist.name, tour_dates):
+                    log_message(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
+                    flash(f'Found {len(tour_dates)} tour dates for {artist.name} and sent notification!', 'success')
+                else:
+                    log_message(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification.', 'warning')
+                    flash(f'Found {len(tour_dates)} tour dates for {artist.name} but failed to send notification (check logs/settings).', 'warning')
             else:
-                 # If Telegram isn't configured, just flash a success message
-                 log_message(f'Found {len(tour_dates)} tour dates for {artist.name}. Telegram not configured.', 'success')
-                 flash(f'Found {len(tour_dates)} tour dates for {artist.name}. (Telegram not configured)', 'success')
+                log_message(f'Found {len(tour_dates)} tour dates for {artist.name}. Telegram not configured.', 'success')
+                flash(f'Found {len(tour_dates)} tour dates for {artist.name}. (Telegram not configured)', 'success')
         else:
             # No tour dates found, this is not an error, just an outcome.
             # The check_artist method already sent notifications for scrape *errors*.

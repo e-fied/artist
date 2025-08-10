@@ -209,6 +209,9 @@ class TelegramNotifier:
         """Initializes the Telegram Notifier, fetching credentials."""
         self.bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
         self.chat_id = os.getenv('TELEGRAM_CHAT_ID')
+        self.MAX_MESSAGE_LENGTH = 4096
+        self.SAFE_MESSAGE_LENGTH = 3800
+        self.MAX_EVENTS_PER_CITY_SECTION = 10
         
         # Log whether credentials were found during initialization
         if not self.bot_token or not self.chat_id:
@@ -225,12 +228,6 @@ class TelegramNotifier:
         if not self.is_configured():
             logger.error("Telegram is not configured. Cannot send message.")
             return False
-
-        # Truncate message if it exceeds Telegram's limit (4096 chars)
-        max_len = 4096
-        if len(message) > max_len:
-            message = message[:max_len - 10] + "\n\n[...]" # Add indicator that it was truncated
-            logger.warning("Telegram message truncated due to length limit.")
 
         url = f"https://api.telegram.org/bot{self.bot_token}/sendMessage"
         payload = {
@@ -274,6 +271,98 @@ class TelegramNotifier:
         except Exception as e:
             logger.error(f"An unexpected error occurred sending Telegram message: {e}")
             return False
+
+    def send_tour_dates(self, artist_name: str, tour_dates: List[Dict]) -> bool:
+        """Safely sends tour dates grouped by city, chunked to respect Telegram limits with valid HTML."""
+        if not self.is_configured():
+            logger.warning("Telegram is not configured. Skipping send_tour_dates.")
+            return False
+
+        if not tour_dates:
+            return True
+
+        header = f"🎵 <b>New tour dates found for {artist_name}!</b>\n\n"
+
+        # Build sources block (only included in first chunk)
+        source_urls = sorted(list(set(
+            d.get('source_url') for d in tour_dates if d.get('source_url')
+        )))
+        sources_block = ""
+        if source_urls:
+            sources_block += "🔍 <b>Source(s):</b>\n"
+            for url in source_urls:
+                # Determine label from first matching date
+                first_date_for_url = next((d for d in tour_dates if d.get('source_url') == url), None)
+                source_type = first_date_for_url.get('source', 'Unknown') if first_date_for_url else 'Unknown'
+                label = "Ticketmaster Event Page" if source_type == "Ticketmaster" else url
+                # Ensure quotes are balanced in HTML
+                sources_block += f"• <a href=\"{url}\">{label}</a> ({source_type})\n"
+            sources_block += "\n"
+
+        # Group dates by city and create city sections. Split large cities by event count.
+        dates_by_city: Dict[str, List[Dict]] = {}
+        for d in tour_dates:
+            city = d.get('city', 'Unknown City')
+            dates_by_city.setdefault(city, []).append(d)
+
+        city_sections: List[str] = []
+        for city in sorted(dates_by_city.keys()):
+            city_events = sorted(dates_by_city[city], key=lambda x: x.get('date', ''))
+
+            # Split events into chunks to avoid a single city section growing too large
+            for idx in range(0, len(city_events), self.MAX_EVENTS_PER_CITY_SECTION):
+                sub_events = city_events[idx:idx + self.MAX_EVENTS_PER_CITY_SECTION]
+                city_header = f"📍 <b>{city}</b>\n" if idx == 0 else f"📍 <b>{city} (cont.)</b>\n"
+                section_parts: List[str] = [city_header]
+                for date_info in sub_events:
+                    venue = date_info.get('venue', 'Unknown Venue')
+                    date_str = date_info.get('date', 'Unknown Date')
+                    ticket_url = date_info.get('ticket_url', '#')
+                    section_parts.append(f"  • {venue}\n")
+                    section_parts.append(f"    📅 {date_str}\n")
+                    if ticket_url != '#':
+                        section_parts.append(f"    🎟 <a href=\"{ticket_url}\">Get Tickets</a>\n")
+                    section_parts.append("\n")
+                city_sections.append(''.join(section_parts))
+
+        # Pack city sections into message chunks under SAFE_MESSAGE_LENGTH
+        messages: List[str] = []
+        current = header + sources_block
+        for section in city_sections:
+            if len(current) + len(section) <= self.SAFE_MESSAGE_LENGTH:
+                current += section
+            else:
+                messages.append(current.rstrip())
+                current = f"🎵 <b>New tour dates found for {artist_name}!</b> (continued)\n\n" + section
+        if current.strip():
+            messages.append(current.rstrip())
+
+        # Final safeguard: ensure none exceeds MAX_MESSAGE_LENGTH
+        safe_messages: List[str] = []
+        for msg in messages:
+            if len(msg) <= self.MAX_MESSAGE_LENGTH:
+                safe_messages.append(msg)
+            else:
+                # As a last resort, split by double newlines between sections
+                parts = msg.split('\n\n')
+                accum = ""
+                for p in parts:
+                    candidate = (accum + ('\n\n' if accum else '') + p)
+                    if len(candidate) > self.SAFE_MESSAGE_LENGTH:
+                        if accum:
+                            safe_messages.append(accum)
+                        accum = p
+                    else:
+                        accum = candidate
+                if accum:
+                    safe_messages.append(accum)
+
+        all_ok = True
+        for i, msg in enumerate(safe_messages, start=1):
+            ok = self.send_message(msg)
+            if not ok:
+                all_ok = False
+        return all_ok
 
     def send_scrape_error_notification(self, artist_name: str, url: str, error_description: str = "Detected error page (e.g., 404 Not Found)"):
         """Sends a notification about a potential scraping error for a specific URL."""
@@ -576,57 +665,9 @@ def check_all_artists():
                     tour_dates = scraper.check_artist(artist, notifier)
 
                     if tour_dates:
-                        # --- Success Notification Logic ---
-                        # (This part remains largely the same, formats the success message)
-                        message = f"🎵 <b>New tour dates found for {artist.name}!</b>\n\n"
-                        # Add source URLs (deduplicated)
-                        source_urls = sorted(list(set(
-                            date['source_url'] for date in tour_dates if 'source_url' in date
-                        )))
-                        if source_urls:
-                             message += "🔍 <b>Source(s):</b>\n"
-                             for url in source_urls:
-                                 # Try to determine source type for better labeling
-                                 source_type = "Unknown"
-                                 # Find the first date associated with this URL to guess source type
-                                 first_date_for_url = next((d for d in tour_dates if d.get('source_url') == url), None)
-                                 if first_date_for_url:
-                                     source_type = first_date_for_url.get('source', 'Unknown')
-
-                                 label = "Ticketmaster Event Page" if source_type == "Ticketmaster" else url
-                                 message += f"• <a href='{url}'>{label}</a> ({source_type})\n"
-                             message += "\n"
-
-                        # Group dates by city
-                        dates_by_city = {}
-                        for date in tour_dates:
-                            city = date.get('city', 'Unknown City')
-                            if city not in dates_by_city:
-                                dates_by_city[city] = []
-                            dates_by_city[city].append(date)
-
-                        # Format message by city
-                        for city, dates in sorted(dates_by_city.items()): # Sort cities alphabetically
-                            message += f"📍 <b>{city}</b>\n"
-                            sorted_dates = sorted(dates, key=lambda x: x.get('date', ''))
-                            for date_info in sorted_dates:
-                                venue = date_info.get('venue', 'Unknown Venue')
-                                date_str = date_info.get('date', 'Unknown Date')
-                                ticket_url = date_info.get('ticket_url', '#')
-                                message += (
-                                    f"  • {venue}\n"
-                                    f"    📅 {date_str}\n"
-                                )
-                                # Conditionally add the ticket link line
-                                if ticket_url != '#':
-                                    message += f"    🎟 <a href=\"{ticket_url}\">Get Tickets</a>\n"
-                                # Add the final newline
-                                message += "\n"
-                        # Send the success notification
                         logger.info(f"Sending success notification for {len(tour_dates)} dates for {artist.name}")
-                        if not notifier.send_message(message):
-                             logger.error(f"Failed to send success notification for {artist.name}")
-                        # --- End Success Notification Logic ---
+                        if not notifier.send_tour_dates(artist.name, tour_dates):
+                            logger.error(f"Failed to send success notification for {artist.name}")
                     else:
                         logger.info(f"No new tour dates found for {artist.name} during this check.")
 
