@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
+from urllib.parse import quote_plus
 
 app = Flask(__name__)
 
@@ -14,5 +15,14 @@ app.config['SECRET_KEY'] = 'your-secret-key-here'
 app.debug = True
 
 db = SQLAlchemy(app)
+
+# Register Jinja filter for URL encoding
+def urlencode_filter(value: str):
+    try:
+        return quote_plus(value or "")
+    except Exception:
+        return ""
+
+app.jinja_env.filters['urlencode'] = urlencode_filter
 
 from app import routes, models

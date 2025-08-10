@@ -796,6 +796,7 @@ body {
     justify-content: center;
     font-size: 0.9rem;
     transition: all 0.2s ease;
+    cursor: pointer;
 }
 
 .search-method:hover {
